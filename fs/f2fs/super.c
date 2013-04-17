@@ -2904,9 +2904,9 @@ static int __init init_f2fs_fs(void)
 	err = f2fs_init_sysfs();
 	if (err)
 		goto free_extent_cache;
-
-	register_shrinker(&f2fs_shrinker_info);
-
+	err = register_shrinker(&f2fs_shrinker_info);
+if (err)
+		goto free_sysfs;
 	err = register_filesystem(&f2fs_fs_type);
 	if (err)
 		goto free_shrinker;
