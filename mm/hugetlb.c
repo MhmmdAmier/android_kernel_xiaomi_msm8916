@@ -3035,15 +3035,6 @@ out_mutex:
 	return ret;
 }
 
-/* Can be overriden by architectures */
-__attribute__((weak)) struct page *
-follow_huge_pud(struct mm_struct *mm, unsigned long address,
-	       pud_t *pud, int write)
-{
-	BUG();
-	return NULL;
-}
-
 long follow_hugetlb_page(struct mm_struct *mm, struct vm_area_struct *vma,
 			 struct page **pages, struct vm_area_struct **vmas,
 			 unsigned long *position, unsigned long *nr_pages,
