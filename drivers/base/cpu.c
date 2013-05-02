@@ -68,15 +68,6 @@ static int cpu_subsys_offline(struct device *dev)
 	return cpu_down(dev->id);
 }
 
-static struct attribute *hotplug_cpu_attrs[] = {
-	&dev_attr_online.attr,
-	NULL
-};
-
-static struct attribute_group hotplug_cpu_attr_group = {
-	.attrs = hotplug_cpu_attrs,
-};
-
 void unregister_cpu(struct cpu *cpu)
 {
 	int logical_cpu = cpu->dev.id;
