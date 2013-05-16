@@ -608,8 +608,7 @@ static struct t10_pr_registration *__core_scsi3_do_alloc_registration(
 		return NULL;
 	}
 
-	pr_reg->pr_aptpl_buf = kzalloc(dev->t10_pr.pr_aptpl_buf_len,
-					GFP_ATOMIC);
+	pr_reg->pr_aptpl_buf = kzalloc(PR_APTPL_BUF_LEN, GFP_ATOMIC);
 	if (!pr_reg->pr_aptpl_buf) {
 		pr_err("Unable to allocate pr_reg->pr_aptpl_buf\n");
 		kmem_cache_free(t10_pr_reg_cache, pr_reg);
@@ -806,7 +805,7 @@ int core_scsi3_alloc_aptpl_registration(
 		pr_err("Unable to allocate struct t10_pr_registration\n");
 		return -ENOMEM;
 	}
-	pr_reg->pr_aptpl_buf = kzalloc(pr_tmpl->pr_aptpl_buf_len, GFP_KERNEL);
+	pr_reg->pr_aptpl_buf = kzalloc(PR_APTPL_BUF_LEN, GFP_KERNEL);
 
 	INIT_LIST_HEAD(&pr_reg->pr_reg_list);
 	INIT_LIST_HEAD(&pr_reg->pr_reg_abort_list);
@@ -2133,8 +2132,7 @@ core_scsi3_emulate_pro_register(struct se_cmd *cmd, u64 res_key, u64 sa_res_key,
 				se_sess->se_node_acl, se_sess);
 
 		if (core_scsi3_update_and_write_aptpl(cmd->se_dev,
-				&pr_reg->pr_aptpl_buf[0],
-				pr_tmpl->pr_aptpl_buf_len)) {
+				pr_reg->pr_aptpl_buf, PR_APTPL_BUF_LEN)) {
 			pr_tmpl->pr_aptpl_active = 1;
 			pr_debug("SPC-3 PR: Set APTPL Bit Activated for REGISTER\n");
 		}
@@ -2183,8 +2181,7 @@ core_scsi3_emulate_pro_register(struct se_cmd *cmd, u64 res_key, u64 sa_res_key,
 	 * Allocate APTPL metadata buffer used for UNREGISTER ops
 	 */
 	if (aptpl) {
-		pr_aptpl_buf = kzalloc(pr_tmpl->pr_aptpl_buf_len,
-					GFP_KERNEL);
+		pr_aptpl_buf = kzalloc(PR_APTPL_BUF_LEN, GFP_KERNEL);
 		if (!pr_aptpl_buf) {
 			pr_err("Unable to allocate"
 				" pr_aptpl_buf\n");
@@ -2272,8 +2269,7 @@ core_scsi3_emulate_pro_register(struct se_cmd *cmd, u64 res_key, u64 sa_res_key,
 			return 0;
 		}
 
-		if (!core_scsi3_update_and_write_aptpl(dev, &pr_aptpl_buf[0],
-				pr_tmpl->pr_aptpl_buf_len)) {
+		if (!core_scsi3_update_and_write_aptpl(dev, pr_aptpl_buf, PR_APTPL_BUF_LEN)) {
 			pr_tmpl->pr_aptpl_active = 1;
 			pr_debug("SPC-3 PR: Set APTPL Bit Activated"
 					" for UNREGISTER\n");
@@ -2305,8 +2301,7 @@ core_scsi3_emulate_pro_register(struct se_cmd *cmd, u64 res_key, u64 sa_res_key,
 		goto out_put_pr_reg;
 	}
 
-	if (!core_scsi3_update_and_write_aptpl(dev, &pr_aptpl_buf[0],
-						pr_tmpl->pr_aptpl_buf_len)) {
+	if (!core_scsi3_update_and_write_aptpl(dev, pr_aptpl_buf, PR_APTPL_BUF_LEN)) {
 		pr_tmpl->pr_aptpl_active = 1;
 		pr_debug("SPC-3 PR: Set APTPL Bit Activated"
 			" for REGISTER\n");
@@ -2496,8 +2491,7 @@ core_scsi3_pro_reserve(struct se_cmd *cmd, int type, int scope, u64 res_key)
 
 	if (pr_tmpl->pr_aptpl_active) {
 		if (!core_scsi3_update_and_write_aptpl(cmd->se_dev,
-				&pr_reg->pr_aptpl_buf[0],
-				pr_tmpl->pr_aptpl_buf_len)) {
+				pr_reg->pr_aptpl_buf, PR_APTPL_BUF_LEN)) {
 			pr_debug("SPC-3 PR: Updated APTPL metadata"
 					" for RESERVE\n");
 		}
@@ -2719,7 +2713,7 @@ core_scsi3_emulate_pro_release(struct se_cmd *cmd, int type, int scope,
 write_aptpl:
 	if (pr_tmpl->pr_aptpl_active) {
 		if (!core_scsi3_update_and_write_aptpl(cmd->se_dev,
-			&pr_reg->pr_aptpl_buf[0], pr_tmpl->pr_aptpl_buf_len)) {
+			pr_reg->pr_aptpl_buf, PR_APTPL_BUF_LEN)) {
 			pr_debug("SPC-3 PR: Updated APTPL metadata for RELEASE\n");
 		}
 	}
@@ -3048,8 +3042,7 @@ core_scsi3_pro_preempt(struct se_cmd *cmd, int type, int scope, u64 res_key,
 
 		if (pr_tmpl->pr_aptpl_active) {
 			if (!core_scsi3_update_and_write_aptpl(cmd->se_dev,
-					&pr_reg_n->pr_aptpl_buf[0],
-					pr_tmpl->pr_aptpl_buf_len)) {
+					pr_reg_n->pr_aptpl_buf,	PR_APTPL_BUF_LEN)) {
 				pr_debug("SPC-3 PR: Updated APTPL"
 					" metadata for  PREEMPT%s\n", (abort) ?
 					"_AND_ABORT" : "");
@@ -3184,8 +3177,7 @@ core_scsi3_pro_preempt(struct se_cmd *cmd, int type, int scope, u64 res_key,
 
 	if (pr_tmpl->pr_aptpl_active) {
 		if (!core_scsi3_update_and_write_aptpl(cmd->se_dev,
-				&pr_reg_n->pr_aptpl_buf[0],
-				pr_tmpl->pr_aptpl_buf_len)) {
+				pr_reg_n->pr_aptpl_buf, PR_APTPL_BUF_LEN)) {
 			pr_debug("SPC-3 PR: Updated APTPL metadata for PREEMPT"
 				"%s\n", abort ? "_AND_ABORT" : "");
 		}
@@ -3629,8 +3621,7 @@ after_iport_check:
 	} else {
 		pr_tmpl->pr_aptpl_active = 1;
 		if (!core_scsi3_update_and_write_aptpl(cmd->se_dev,
-				&dest_pr_reg->pr_aptpl_buf[0],
-				pr_tmpl->pr_aptpl_buf_len)) {
+				dest_pr_reg->pr_aptpl_buf, PR_APTPL_BUF_LEN)) {
 			pr_debug("SPC-3 PR: Set APTPL Bit Activated for"
 					" REGISTER_AND_MOVE\n");
 		}
