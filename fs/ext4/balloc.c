@@ -194,7 +194,7 @@ void ext4_init_block_bitmap(struct super_block *sb, struct buffer_head *bh,
 		grp = ext4_get_group_info(sb, block_group);
 		set_bit(EXT4_GROUP_INFO_BBITMAP_CORRUPT_BIT, &grp->bb_state);
 		set_bit(EXT4_GROUP_INFO_IBITMAP_CORRUPT_BIT, &grp->bb_state);
-		return -EIO;
+		return;
 	}
 	memset(bh->b_data, 0, sb->s_blocksize);
 
