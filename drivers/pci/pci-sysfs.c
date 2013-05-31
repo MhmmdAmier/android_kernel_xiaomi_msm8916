@@ -324,6 +324,8 @@ dev_rescan_store(struct device *dev, struct device_attribute *attr,
 	}
 	return count;
 }
+struct device_attribute dev_rescan_attr = __ATTR(rescan, (S_IWUSR|S_IWGRP),
+						 NULL, dev_rescan_store);
 
 static void remove_callback(struct device *dev)
 {
@@ -349,6 +351,8 @@ remove_store(struct device *dev, struct device_attribute *dummy,
 		count = ret;
 	return count;
 }
+struct device_attribute dev_remove_attr = __ATTR(remove, (S_IWUSR|S_IWGRP),
+						 NULL, remove_store);
 
 static ssize_t
 dev_bus_rescan_store(struct device *dev, struct device_attribute *attr,
@@ -500,8 +504,6 @@ struct device_attribute pci_dev_attrs[] = {
 	__ATTR(broken_parity_status,(S_IRUGO|S_IWUSR),
 		broken_parity_status_show,broken_parity_status_store),
 	__ATTR(msi_bus, 0644, msi_bus_show, msi_bus_store),
-	__ATTR(remove, (S_IWUSR|S_IWGRP), NULL, remove_store),
-	__ATTR(rescan, (S_IWUSR|S_IWGRP), NULL, dev_rescan_store),
 #if defined(CONFIG_PM_RUNTIME) && defined(CONFIG_ACPI)
 	__ATTR(d3cold_allowed, 0644, d3cold_allowed_show, d3cold_allowed_store),
 #endif
@@ -1468,6 +1470,29 @@ static umode_t pci_dev_attrs_are_visible(struct kobject *kobj,
 	return a->mode;
 }
 
+static struct attribute *pci_dev_hp_attrs[] = {
+	&dev_remove_attr.attr,
+	&dev_rescan_attr.attr,
+	NULL,
+};
+
+static umode_t pci_dev_hp_attrs_are_visible(struct kobject *kobj,
+						struct attribute *a, int n)
+{
+	struct device *dev = container_of(kobj, struct device, kobj);
+	struct pci_dev *pdev = to_pci_dev(dev);
+
+	if (pdev->is_virtfn)
+		return 0;
+
+	return a->mode;
+}
+
+static struct attribute_group pci_dev_hp_attr_group = {
+	.attrs = pci_dev_hp_attrs,
+	.is_visible = pci_dev_hp_attrs_are_visible,
+};
+
 #ifdef CONFIG_PCI_IOV
 static struct attribute *sriov_dev_attrs[] = {
 	&sriov_totalvfs_attr.attr,
@@ -1499,6 +1524,7 @@ static struct attribute_group pci_dev_attr_group = {
 
 static const struct attribute_group *pci_dev_attr_groups[] = {
 	&pci_dev_attr_group,
+	&pci_dev_hp_attr_group,
 #ifdef CONFIG_PCI_IOV
 	&sriov_dev_attr_group,
 #endif
