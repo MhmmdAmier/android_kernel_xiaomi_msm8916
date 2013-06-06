@@ -494,11 +494,15 @@ static void target_remove_from_state_list(struct se_cmd *cmd)
 	spin_unlock_irqrestore(&dev->execute_task_lock, flags);
 }
 
-static int transport_cmd_check_stop(struct se_cmd *cmd, bool remove_from_lists)
+static int transport_cmd_check_stop(struct se_cmd *cmd, bool remove_from_lists,
+				    bool write_pending)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&cmd->t_state_lock, flags);
+	if (write_pending)
+		cmd->t_state = TRANSPORT_WRITE_PENDING;
+
 	/*
 	 * Determine if IOCTL context caller in requesting the stopping of this
 	 * command for LUN shutdown purposes.
@@ -563,7 +567,7 @@ static int transport_cmd_check_stop(struct se_cmd *cmd, bool remove_from_lists)
 
 static int transport_cmd_check_stop_to_fabric(struct se_cmd *cmd)
 {
-	return transport_cmd_check_stop(cmd, true);
+	return transport_cmd_check_stop(cmd, true, false);
 }
 
 static void transport_lun_remove_cmd(struct se_cmd *cmd)
@@ -2191,12 +2195,7 @@ transport_generic_new_cmd(struct se_cmd *cmd)
 		target_execute_cmd(cmd);
 		return 0;
 	}
-
-	spin_lock_irq(&cmd->t_state_lock);
-	cmd->t_state = TRANSPORT_WRITE_PENDING;
-	spin_unlock_irq(&cmd->t_state_lock);
-
-	transport_cmd_check_stop(cmd, false);
+	transport_cmd_check_stop(cmd, false, true);
 
 	ret = cmd->se_tfo->write_pending(cmd);
 	if (ret == -EAGAIN || ret == -ENOMEM)
@@ -2396,7 +2395,7 @@ static int transport_lun_wait_for_tasks(struct se_cmd *cmd, struct se_lun *lun)
 		pr_debug("ConfigFS ITT[0x%08x] - CMD_T_STOP, skipping\n",
 			 cmd->se_tfo->get_task_tag(cmd));
 		spin_unlock_irqrestore(&cmd->t_state_lock, flags);
-		transport_cmd_check_stop(cmd, false);
+		transport_cmd_check_stop(cmd, false, false);
 		return -EPERM;
 	}
 	cmd->transport_state |= CMD_T_LUN_FE_STOP;
@@ -2504,7 +2503,7 @@ check_cond:
 
 			spin_unlock_irqrestore(&cmd->t_state_lock,
 					cmd_flags);
-			transport_cmd_check_stop(cmd, false);
+			transport_cmd_check_stop(cmd, false, false);
 			complete(&cmd->transport_lun_fe_stop_comp);
 			spin_lock_irqsave(&lun->lun_cmd_lock, lun_flags);
 			continue;
