@@ -2676,6 +2676,7 @@ again:
 			spin_unlock(&delayed_refs->lock);
 			btrfs_abort_transaction(trans, root, ret);
 			atomic_dec(&delayed_refs->procs_running_refs);
+			wake_up(&delayed_refs->wait);
 			return ret;
 		}
 
