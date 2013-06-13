@@ -135,6 +135,8 @@ static int flow_limit_cpu_sysctl(ctl_table *table, int write,
 write_unlock:
 		mutex_unlock(&flow_limit_update_mutex);
 	} else {
+		char kbuf[128];
+
 		if (*ppos || !*lenp) {
 			*lenp = 0;
 			goto done;
@@ -149,9 +151,20 @@ write_unlock:
 		}
 		rcu_read_unlock();
 
-		len = cpumask_scnprintf(buffer, *lenp, mask);
-		*lenp = len + 1;
-		*ppos += len + 1;
+		len = min(sizeof(kbuf) - 1, *lenp);
+		len = cpumask_scnprintf(kbuf, len, mask);
+		if (!len) {
+			*lenp = 0;
+			goto done;
+		}
+		if (len < *lenp)
+			kbuf[len++] = '\n';
+		if (copy_to_user(buffer, kbuf, len)) {
+			ret = -EFAULT;
+			goto done;
+		}
+		*lenp = len;
+		*ppos += len;
 	}
 
 done:
