@@ -213,6 +213,7 @@ static struct cgroup_name root_cgroup_name = { .name = "/" };
  */
 static int need_forkexit_callback __read_mostly;
 
+static void cgroup_offline_fn(struct work_struct *work);
 static int cgroup_destroy_locked(struct cgroup *cgrp);
 static int cgroup_addrm_files(struct cgroup *cgrp, struct cgroup_subsys *subsys,
 			      struct cftype cfts[], bool is_add);
@@ -838,7 +839,7 @@ static struct cgroup_name *cgroup_alloc_name(struct dentry *dentry)
 
 static void cgroup_free_fn(struct work_struct *work)
 {
-	struct cgroup *cgrp = container_of(work, struct cgroup, free_work);
+	struct cgroup *cgrp = container_of(work, struct cgroup, destroy_work);
 	struct cgroup_subsys *ss;
 
 	mutex_lock(&cgroup_mutex);
@@ -882,6 +883,8 @@ static void cgroup_free_rcu(struct rcu_head *head)
 	struct cgroup *cgrp = container_of(head, struct cgroup, rcu_head);
 
 	queue_work(cgroup_destroy_wq, &cgrp->free_work);
+	INIT_WORK(&cgrp->destroy_work, cgroup_free_fn);
+	schedule_work(&cgrp->destroy_work);
 }
 
 static void cgroup_diput(struct dentry *dentry, struct inode *inode)
@@ -1413,7 +1416,6 @@ static void init_cgroup_housekeeping(struct cgroup *cgrp)
 	INIT_LIST_HEAD(&cgrp->allcg_node);
 	INIT_LIST_HEAD(&cgrp->release_list);
 	INIT_LIST_HEAD(&cgrp->pidlists);
-	INIT_WORK(&cgrp->free_work, cgroup_free_fn);
 	mutex_init(&cgrp->pidlist_mutex);
 	INIT_LIST_HEAD(&cgrp->event_list);
 	spin_lock_init(&cgrp->event_list_lock);
@@ -4339,7 +4341,6 @@ static int cgroup_destroy_locked(struct cgroup *cgrp)
 	__releases(&cgroup_mutex) __acquires(&cgroup_mutex)
 {
 	struct dentry *d = cgrp->dentry;
-	struct cgroup *parent = cgrp->parent;
 	struct cgroup_event *event, *tmp;
 	struct cgroup_subsys *ss;
 
@@ -4418,6 +4419,12 @@ static int cgroup_destroy_locked(struct cgroup *cgrp)
  * is the second step of destruction described in the comment above
  * cgroup_destroy_locked().
  */
+	INIT_WORK(&cgrp->destroy_work, cgroup_offline_fn);
+	schedule_work(&cgrp->destroy_work);
+
+	return 0;
+};
+
 static void cgroup_offline_fn(struct work_struct *work)
 {
 	struct cgroup *cgrp = container_of(work, struct cgroup, destroy_work);
