@@ -83,4 +83,6 @@
 
 #define SO_MAX_PACING_RATE	46
 
+#define SO_LL			46
+
 #endif	/* _ASM_POWERPC_SOCKET_H */

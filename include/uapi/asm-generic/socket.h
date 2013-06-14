@@ -78,4 +78,6 @@
 
 #define SO_MAX_PACING_RATE	46
 
+#define SO_LL			46
+
 #endif /* __ASM_GENERIC_SOCKET_H */

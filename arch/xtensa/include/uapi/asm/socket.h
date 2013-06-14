@@ -87,4 +87,6 @@
 
 #define SO_MAX_PACING_RATE	46
 
+#define SO_LL			46
+
 #endif	/* _XTENSA_SOCKET_H */

@@ -75,4 +75,6 @@
 
 #define SO_MAX_PACING_RATE	0x4027
 
+#define SO_LL			0x4027
+
 #endif /* _ASM_SOCKET_H */
