@@ -3922,7 +3922,7 @@ drop_write:
 
 static long btrfs_ioctl_quota_rescan(struct file *file, void __user *arg)
 {
-	struct btrfs_root *root = BTRFS_I(fdentry(file)->d_inode)->root;
+	struct btrfs_root *root = BTRFS_I(file_inode(file))->root;
 	struct btrfs_ioctl_quota_rescan_args *qsa;
 	int ret;
 
@@ -3955,7 +3955,7 @@ drop_write:
 
 static long btrfs_ioctl_quota_rescan_status(struct file *file, void __user *arg)
 {
-	struct btrfs_root *root = BTRFS_I(fdentry(file)->d_inode)->root;
+	struct btrfs_root *root = BTRFS_I(file_inode(file))->root;
 	struct btrfs_ioctl_quota_rescan_args *qsa;
 	int ret = 0;
 
@@ -4071,7 +4071,7 @@ out:
 
 static int btrfs_ioctl_get_fslabel(struct file *file, void __user *arg)
 {
-	struct btrfs_root *root = BTRFS_I(fdentry(file)->d_inode)->root;
+	struct btrfs_root *root = BTRFS_I(file_inode(file))->root;
 	const char *label = root->fs_info->super_copy->label;
 	size_t len = strnlen(label, BTRFS_LABEL_SIZE);
 	int ret;
@@ -4090,7 +4090,7 @@ static int btrfs_ioctl_get_fslabel(struct file *file, void __user *arg)
 
 static int btrfs_ioctl_set_fslabel(struct file *file, void __user *arg)
 {
-	struct btrfs_root *root = BTRFS_I(fdentry(file)->d_inode)->root;
+	struct btrfs_root *root = BTRFS_I(file_inode(file))->root;
 	struct btrfs_super_block *super_block = root->fs_info->super_copy;
 	struct btrfs_trans_handle *trans;
 	char label[BTRFS_LABEL_SIZE];
