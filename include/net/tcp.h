@@ -1343,9 +1343,9 @@ extern void tcp_fastopen_cookie_gen(__be32 src, __be32 dst,
 
 /* Fastopen key context */
 struct tcp_fastopen_context {
-	struct crypto_cipher __rcu	*tfm;
-	__u8				key[TCP_FASTOPEN_KEY_LENGTH];
-	struct rcu_head			rcu;
+	struct crypto_cipher	*tfm;
+	__u8			key[TCP_FASTOPEN_KEY_LENGTH];
+	struct rcu_head		rcu;
 };
 
 /* write queue abstraction */
