@@ -334,6 +334,7 @@ static void gre_err(struct sk_buff *skb, u32 info)
 	rcu_read_unlock();
 }
 
+<<<<<<< HEAD:net/ipv4/gre.c
 static struct sk_buff *gre_gso_segment(struct sk_buff *skb,
 				       netdev_features_t features)
 {
@@ -428,17 +429,12 @@ static int gre_gso_send_check(struct sk_buff *skb)
 	return 0;
 }
 
+=======
+>>>>>>> c50cd357887a... net: gre: move GSO functions to gre_offload:net/ipv4/gre_demux.c
 static const struct net_protocol net_gre_protocol = {
 	.handler     = gre_rcv,
 	.err_handler = gre_err,
 	.netns_ok    = 1,
-};
-
-static const struct net_offload gre_offload = {
-	.callbacks = {
-		.gso_send_check =	gre_gso_send_check,
-		.gso_segment    =	gre_gso_segment,
-	},
 };
 
 static const struct gre_protocol ipgre_protocol = {
@@ -485,7 +481,7 @@ static int __init gre_init(void)
 		goto err_gre;
 	}
 
-	if (inet_add_offload(&gre_offload, IPPROTO_GRE)) {
+	if (gre_offload_init()) {
 		pr_err("can't add protocol offload\n");
 		goto err_gso;
 	}
@@ -501,7 +497,8 @@ err:
 
 static void __exit gre_exit(void)
 {
-	inet_del_offload(&gre_offload, IPPROTO_GRE);
+	gre_offload_exit();
+
 	gre_del_protocol(&ipgre_protocol, GREPROTO_CISCO);
 	inet_del_protocol(&net_gre_protocol, IPPROTO_GRE);
 }
