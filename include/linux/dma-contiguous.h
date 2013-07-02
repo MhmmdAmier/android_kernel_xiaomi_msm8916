@@ -58,7 +58,7 @@
 struct cma;
 struct page;
 
-#ifdef CONFIG_CMA
+#ifdef CONFIG_DMA_CMA
 
 extern struct cma *dma_contiguous_default_area;
 
