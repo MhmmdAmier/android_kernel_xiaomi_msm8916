@@ -1061,7 +1061,7 @@ static void tick_nohz_switch_to_nohz(void)
 
 	if (tick_switch_to_oneshot(tick_nohz_handler))
 		return;
-	}
+
 	tick_nohz_active = 1;
 	ts->nohz_mode = NOHZ_MODE_LOWRES;
 
