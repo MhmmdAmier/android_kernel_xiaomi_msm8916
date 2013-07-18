@@ -1490,7 +1490,7 @@ func_graph_set_flag(struct trace_array *tr, u32 old_flags, u32 bit, int set)
 	return 0;
 }
 
-static struct tracer graph_trace __read_mostly = {
+static struct tracer graph_trace __tracer_data = {
 	.name		= "function_graph",
 	.open		= graph_trace_open,
 	.pipe_open	= graph_trace_open,
