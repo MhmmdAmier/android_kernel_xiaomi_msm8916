@@ -2106,6 +2106,7 @@ static noinline int record_one_backref(u64 inum, u64 offset, u64 root_id,
 		WARN_ON(1);
 		return ret;
 	}
+	ret = 0;
 
 	while (1) {
 		cond_resched();
@@ -2155,8 +2156,6 @@ static noinline int record_one_backref(u64 inum, u64 offset, u64 root_id,
 		    old->len || extent_offset + num_bytes <=
 		    old->extent_offset + old->offset)
 			continue;
-
-		ret = 0;
 		break;
 	}
 
