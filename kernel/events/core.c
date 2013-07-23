@@ -6797,7 +6797,7 @@ perf_event_alloc(struct perf_event_attr *attr, int cpu,
 	struct pmu *pmu;
 	struct perf_event *event;
 	struct hw_perf_event *hwc;
-	long err;
+	long err = -EINVAL;
 
 	if ((unsigned)cpu >= nr_cpu_ids) {
 		if (!task || cpu != -1)
@@ -6885,22 +6885,20 @@ perf_event_alloc(struct perf_event_attr *attr, int cpu,
 		goto done;
 
 	pmu = perf_init_event(event);
-
-done:
-	err = 0;
 	if (!pmu)
-		err = -EINVAL;
-	else if (IS_ERR(pmu))
+		goto err_ns;
+	else if (IS_ERR(pmu)) {
 		err = PTR_ERR(pmu);
-
-	if (err) {
-		if (event->ns)
-			put_pid_ns(event->ns);
-		kfree(event);
-		return ERR_PTR(err);
+		goto err_ns;
 	}
 
 	if (!event->parent) {
+		if (event->attr.sample_type & PERF_SAMPLE_CALLCHAIN) {
+			err = get_callchain_buffers();
+			if (err)
+				goto err_pmu;
+		}
+
 		if (event->attach_state & PERF_ATTACH_TASK)
 			static_key_slow_inc(&perf_sched_events.key);
 		if (event->attr.mmap || event->attr.mmap_data)
@@ -6915,16 +6913,19 @@ done:
 				atomic_inc(&per_cpu(perf_branch_stack_events,
 						    event->cpu));
 		}
-		if (event->attr.sample_type & PERF_SAMPLE_CALLCHAIN) {
-			err = get_callchain_buffers();
-			if (err) {
-				free_event(event);
-				return ERR_PTR(err);
-			}
-		}
 	}
 
 	return event;
+
+err_pmu:
+	if (event->destroy)
+		event->destroy(event);
+err_ns:
+	if (event->ns)
+		put_pid_ns(event->ns);
+	kfree(event);
+
+	return ERR_PTR(err);
 }
 
 static int perf_copy_attr(struct perf_event_attr __user *uattr,
