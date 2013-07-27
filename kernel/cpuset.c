@@ -1946,7 +1946,6 @@ static void cpuset_css_offline(struct cgroup_subsys_state *css)
 	mutex_unlock(&cpuset_mutex);
 }
 
-
 static void cpuset_css_free(struct cgroup_subsys_state *css)
 {
 	struct cpuset *cs = css_cs(css);
