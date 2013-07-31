@@ -2,7 +2,7 @@
 # Makefile for the linux kernel.
 #
 
-obj-y     = fork.o exec_domain.o panic.o printk.o \
+obj-y     = fork.o exec_domain.o panic.o \
 	    cpu.o exit.o softirq.o resource.o \
 	    sysctl.o sysctl_binary.o capability.o ptrace.o user.o \
 	    signal.o sys.o kmod.o workqueue.o pid.o task_work.o \
@@ -25,6 +25,7 @@ obj-y += locking/
 obj-y += power/
 obj-y += irq/
 obj-y += rcu/
+obj-y += printk/
 
 obj-$(CONFIG_CHECKPOINT_RESTORE) += kcmp.o
 obj-$(CONFIG_FREEZER) += freezer.o
