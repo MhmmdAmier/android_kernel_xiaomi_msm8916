@@ -858,8 +858,6 @@ static void cgroup_free_fn(struct work_struct *work)
 	 */
 	dput(cgrp->parent->dentry);
 
-	ida_simple_remove(&cgrp->root->cgroup_ida, cgrp->id);
-
 	/*
 	 * Drop the active superblock reference that we took when we
 	 * created the cgroup. This will free cgrp->root, if we are
@@ -1434,6 +1432,7 @@ static void init_cgroup_root(struct cgroupfs_root *root)
 	cgrp->name = &root_cgroup_name;
 	init_cgroup_housekeeping(cgrp);
 	list_add_tail(&cgrp->allcg_node, &root->allcg_list);
+	idr_init(&root->cgroup_idr);
 }
 
 static bool init_root_id(struct cgroupfs_root *root)
@@ -1500,7 +1499,6 @@ static struct cgroupfs_root *cgroup_root_from_opts(struct cgroup_sb_opts *opts)
 
 	root->subsys_mask = opts->subsys_mask;
 	root->flags = opts->flags;
-	ida_init(&root->cgroup_ida);
 	if (opts->release_agent)
 		strcpy(root->release_agent_path, opts->release_agent);
 	if (opts->name)
@@ -1519,7 +1517,7 @@ static void cgroup_drop_root(struct cgroupfs_root *root)
 	spin_lock(&hierarchy_id_lock);
 	ida_remove(&hierarchy_ida, root->hierarchy_id);
 	spin_unlock(&hierarchy_id_lock);
-	ida_destroy(&root->cgroup_ida);
+	idr_destroy(&root->cgroup_idr);
 	kfree(root);
 }
 
@@ -1632,6 +1630,11 @@ static struct dentry *cgroup_mount(struct file_system_type *fs_type,
 		mutex_lock(&inode->i_mutex);
 		mutex_lock(&cgroup_mutex);
 		mutex_lock(&cgroup_root_mutex);
+
+		root_cgrp->id = idr_alloc(&root->cgroup_idr, root_cgrp,
+					   0, 1, GFP_KERNEL);
+		if (root_cgrp->id < 0)
+			goto unlock_drop;
 
 		/* Check for name clashes with existing mounts */
 		ret = -EBUSY;
@@ -4196,7 +4199,11 @@ static long cgroup_create(struct cgroup *parent, struct dentry *dentry,
 		goto err_free_cgrp;
 	rcu_assign_pointer(cgrp->name, name);
 
-	cgrp->id = ida_simple_get(&root->cgroup_ida, 1, 0, GFP_KERNEL);
+	/*
+	 * Temporarily set the pointer to NULL, so idr_find() won't return
+	 * a half-baked cgroup.
+	 */
+	cgrp->id = idr_alloc(&root->cgroup_idr, NULL, 1, 0, GFP_KERNEL);
 	if (cgrp->id < 0)
 		goto err_free_name;
 
@@ -4288,6 +4295,7 @@ static long cgroup_create(struct cgroup *parent, struct dentry *dentry,
 	}
 
 	err = cgroup_populate_dir(cgrp, true, root->subsys_mask);
+	idr_replace(&root->cgroup_idr, cgrp, cgrp->id);
 	if (err)
 		goto err_destroy;
 
@@ -4305,7 +4313,7 @@ err_free_all:
 	/* Release the reference count that we took on the superblock */
 	deactivate_super(sb);
 err_free_id:
-	ida_simple_remove(&root->cgroup_ida, cgrp->id);
+	idr_remove(&root->cgroup_idr, cgrp->id);
 err_free_name:
 	kfree(rcu_dereference_raw(cgrp->name));
 err_free_cgrp:
@@ -4398,6 +4406,61 @@ static int cgroup_destroy_locked(struct cgroup *cgrp)
 	spin_unlock(&cgrp->event_list_lock);
 
 	return 0;
+};
+
+/**
+ * cgroup_offline_fn - the second step of cgroup destruction
+ * @work: cgroup->destroy_free_work
+ *
+ * This function is invoked from a work item for a cgroup which is being
+ * destroyed after the percpu refcnts of all css's are guaranteed to be
+ * seen as killed on all CPUs, and performs the rest of destruction.  This
+ * is the second step of destruction described in the comment above
+ * cgroup_destroy_locked().
+ */
+static void cgroup_offline_fn(struct work_struct *work)
+{
+	struct cgroup *cgrp = container_of(work, struct cgroup, destroy_work);
+	struct cgroup *parent = cgrp->parent;
+	struct dentry *d = cgrp->dentry;
+	struct cgroup_subsys *ss;
+
+	mutex_lock(&cgroup_mutex);
+
+	/*
+	 * css_tryget() is guaranteed to fail now.  Tell subsystems to
+	 * initate destruction.
+	 */
+	for_each_root_subsys(cgrp->root, ss)
+		offline_css(ss, cgrp);
+
+	/*
+	 * Put the css refs from cgroup_destroy_locked().  Each css holds
+	 * an extra reference to the cgroup's dentry and cgroup removal
+	 * proceeds regardless of css refs.  On the last put of each css,
+	 * whenever that may be, the extra dentry ref is put so that dentry
+	 * destruction happens only after all css's are released.
+	 */
+	for_each_root_subsys(cgrp->root, ss)
+		css_put(cgrp->subsys[ss->subsys_id]);
+
+	/* delete this cgroup from parent->children */
+	list_del_rcu(&cgrp->sibling);
+
+	/*
+	 * We should remove the cgroup object from idr before its grace
+	 * period starts, so we won't be looking up a cgroup while the
+	 * cgroup is being freed.
+	 */
+	idr_remove(&cgrp->root->cgroup_idr, cgrp->id);
+	cgrp->id = -1;
+
+	dput(d);
+
+	set_bit(CGRP_RELEASABLE, &parent->flags);
+	check_for_release(parent);
+
+	mutex_unlock(&cgroup_mutex);
 }
 
 static int cgroup_rmdir(struct inode *unused_dir, struct dentry *dentry)
@@ -4722,6 +4785,9 @@ int __init cgroup_init(void)
 	key = css_set_hash(init_css_set.subsys);
 	hash_add(css_set_table, &init_css_set.hlist, key);
 	BUG_ON(!init_root_id(&rootnode));
+	err = idr_alloc(&cgroup_dummy_root.cgroup_idr, cgroup_dummy_top,
+			0, 1, GFP_KERNEL);
+	BUG_ON(err < 0);
 
 	cgroup_kobj = kobject_create_and_add("cgroup", fs_kobj);
 	if (!cgroup_kobj) {
