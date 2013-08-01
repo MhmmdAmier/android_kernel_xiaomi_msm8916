@@ -266,7 +266,7 @@ config CGROUP_NET_CLASSID
 	  Cgroup subsystem for use as general purpose socket classid marker that is
 	  being used in cls_cgroup and for netfilter matching.
 
-config NET_LL_RX_POLL
+config NET_RX_BUSY_POLL
 	boolean
 	default y
 
