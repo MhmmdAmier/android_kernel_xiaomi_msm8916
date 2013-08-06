@@ -837,7 +837,7 @@ DEFINE_EVENT(sched_stat_template, sched_stat_blocked,
  * Tracepoint for accounting runtime (time the task is executing
  * on a CPU).
  */
-TRACE_EVENT(sched_stat_runtime,
+DECLARE_EVENT_CLASS(sched_stat_runtime,
 
 	TP_PROTO(struct task_struct *tsk, u64 runtime, u64 vruntime),
 
@@ -865,6 +865,10 @@ TRACE_EVENT(sched_stat_runtime,
 			(unsigned long long)__entry->runtime,
 			(unsigned long long)__entry->vruntime)
 );
+
+DEFINE_EVENT(sched_stat_runtime, sched_stat_runtime,
+	     TP_PROTO(struct task_struct *tsk, u64 runtime, u64 vruntime),
+	     TP_ARGS(tsk, runtime, vruntime));
 
 /*
  * Tracepoint for showing priority inheritance modifying a tasks
