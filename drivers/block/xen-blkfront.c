@@ -1244,6 +1244,20 @@ static int blkfront_probe(struct xenbus_device *dev,
 	return 0;
 }
 
+static void split_bio_end(struct bio *bio, int error)
+{
+	struct split_bio *split_bio = bio->bi_private;
+
+	if (error)
+		split_bio->err = error;
+
+	if (atomic_dec_and_test(&split_bio->pending)) {
+		split_bio->bio->bi_phys_segments = 0;
+		bio_endio(split_bio->bio, split_bio->err);
+		kfree(split_bio);
+	}
+	bio_put(bio);
+}
 
 static int blkif_recover(struct blkfront_info *info)
 {
@@ -1328,6 +1342,39 @@ static int blkif_recover(struct blkfront_info *info)
 	kick_pending_request_queues(info);
 
 	spin_unlock_irq(&info->io_lock);
+
+	while ((bio = bio_list_pop(&bio_list)) != NULL) {
+		/* Traverse the list of pending bios and re-queue them */
+		if (bio_segments(bio) > segs) {
+			/*
+			 * This bio has more segments than what we can
+			 * handle, we have to split it.
+			 */
+			pending = (bio_segments(bio) + segs - 1) / segs;
+			split_bio = kzalloc(sizeof(*split_bio), GFP_NOIO);
+			BUG_ON(split_bio == NULL);
+			atomic_set(&split_bio->pending, pending);
+			split_bio->bio = bio;
+			for (i = 0; i < pending; i++) {
+				offset = (i * segs * PAGE_SIZE) >> 9;
+				size = min((unsigned int)(segs * PAGE_SIZE) >> 9,
+					   (unsigned int)(bio->bi_size >> 9) - offset);
+				cloned_bio = bio_clone(bio, GFP_NOIO);
+				BUG_ON(cloned_bio == NULL);
+				bio_trim(cloned_bio, offset, size);
+				cloned_bio->bi_private = split_bio;
+				cloned_bio->bi_end_io = split_bio_end;
+				submit_bio(cloned_bio->bi_rw, cloned_bio);
+			}
+			/*
+			 * Now we have to wait for all those smaller bios to
+			 * end, so we can also end the "parent" bio.
+			 */
+			continue;
+		}
+		/* We don't need to split this bio */
+		submit_bio(bio->bi_rw, bio);
+	}
 
 	return 0;
 }
