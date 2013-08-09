@@ -60,7 +60,7 @@ static inline struct hugetlb_cgroup *parent_hugetlb_cgroup(struct cgroup *cg)
 {
 	if (!cg->parent)
 		return NULL;
-	return hugetlb_cgroup_from_cgroup(cg->parent);
+	return hugetlb_cgroup_from_css(css_parent(&h_cg->css));
 }
 
 static inline bool hugetlb_cgroup_have_usage(struct cgroup *cg)
