@@ -2264,7 +2264,7 @@ DECLARE_EVENT_CLASS(ext4__es_extent,
 		__entry->lblk	= es->es_lblk;
 		__entry->len	= es->es_len;
 		__entry->pblk	= ext4_es_pblock(es);
-		__entry->status	= ext4_es_status(es) >> 60;
+		__entry->status	= ext4_es_status(es);
 	),
 
 	TP_printk("dev %d,%d ino %lu es [%u/%u) mapped %llu status %s",
@@ -2353,7 +2353,7 @@ TRACE_EVENT(ext4_es_find_delayed_extent_range_exit,
 		__entry->lblk	= es->es_lblk;
 		__entry->len	= es->es_len;
 		__entry->pblk	= ext4_es_pblock(es);
-		__entry->status	= ext4_es_status(es) >> 60;
+		__entry->status	= ext4_es_status(es);
 	),
 
 	TP_printk("dev %d,%d ino %lu es [%u/%u) mapped %llu status %s",
@@ -2407,7 +2407,7 @@ TRACE_EVENT(ext4_es_lookup_extent_exit,
 		__entry->lblk	= es->es_lblk;
 		__entry->len	= es->es_len;
 		__entry->pblk	= ext4_es_pblock(es);
-		__entry->status	= ext4_es_status(es) >> 60;
+		__entry->status	= ext4_es_status(es);
 		__entry->found	= found;
 	),
 
