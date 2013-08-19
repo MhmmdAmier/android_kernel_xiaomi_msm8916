@@ -713,6 +713,8 @@ static inline struct cgroup* task_cgroup(struct task_struct *task,
 	return task_subsys_state(task, subsys_id)->cgroup;
 }
 
+struct cgroup_subsys_state *css_from_id(int id, struct cgroup_subsys *ss);
+
 /**
  * cgroup_for_each_child - iterate through children of a cgroup
  * @pos: the cgroup * to use as the loop cursor
