@@ -755,8 +755,7 @@ out:
 			num_uncorrectable_read_errors);
 		printk_ratelimited_in_rcu(KERN_ERR
 			"btrfs: unable to fixup (nodatasum) error at logical %llu on dev %s\n",
-			(unsigned long long)fixup->logical,
-			rcu_str_deref(fixup->dev->name));
+			fixup->logical, rcu_str_deref(fixup->dev->name));
 	}
 
 	btrfs_free_path(path);
@@ -1155,8 +1154,7 @@ corrected_error:
 			spin_unlock(&sctx->stat_lock);
 			printk_ratelimited_in_rcu(KERN_ERR
 				"btrfs: fixed up error at logical %llu on dev %s\n",
-				(unsigned long long)logical,
-				rcu_str_deref(dev->name));
+				logical, rcu_str_deref(dev->name));
 		}
 	} else {
 did_not_correct_error:
@@ -1165,8 +1163,7 @@ did_not_correct_error:
 		spin_unlock(&sctx->stat_lock);
 		printk_ratelimited_in_rcu(KERN_ERR
 			"btrfs: unable to fixup (regular) error at logical %llu on dev %s\n",
-			(unsigned long long)logical,
-			rcu_str_deref(dev->name));
+			logical, rcu_str_deref(dev->name));
 	}
 
 out:
@@ -2462,8 +2459,7 @@ static noinline_for_stack int scrub_stripe(struct scrub_ctx *sctx,
 				printk(KERN_ERR
 				       "btrfs scrub: tree block %llu spanning "
 				       "stripes, ignored. logical=%llu\n",
-				       (unsigned long long)key.objectid,
-				       (unsigned long long)logical);
+				       key.objectid, logical);
 				goto next;
 			}
 
@@ -3182,9 +3178,7 @@ static void copy_nocow_pages_worker(struct btrfs_work *work)
 					  nocow_ctx);
 	if (ret != 0 && ret != -ENOENT) {
 		pr_warn("iterate_inodes_from_logical() failed: log %llu, phys %llu, len %llu, mir %llu, ret %d\n",
-			(unsigned long long)logical,
-			(unsigned long long)physical_for_dev_replace,
-			(unsigned long long)len,
+			logical, physical_for_dev_replace, len,
 			(unsigned long long)mirror_num, ret);
 		not_written = 1;
 		goto out;
