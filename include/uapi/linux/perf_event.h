@@ -276,6 +276,7 @@ struct perf_event_attr {
 
 				exclude_callchain_kernel : 1, /* exclude kernel callchains */
 				exclude_callchain_user   : 1, /* exclude user callchains */
+				mmap2          :  1, /* include mmap with inode data     */
 				constraint_duplicate : 1,
 
 				__reserved_1   : 40;
@@ -653,6 +654,27 @@ enum perf_event_type {
 	 * };
 	 */
 	PERF_RECORD_SAMPLE			= 9,
+
+	/*
+	 * The MMAP2 records are an augmented version of MMAP, they add
+	 * maj, min, ino numbers to be used to uniquely identify each mapping
+	 *
+	 * struct {
+	 *	struct perf_event_header	header;
+	 *
+	 *	u32				pid, tid;
+	 *	u64				addr;
+	 *	u64				len;
+	 *	u64				pgoff;
+	 *	u32				maj;
+	 *	u32				min;
+	 *	u64				ino;
+	 *	u64				ino_generation;
+	 *	char				filename[];
+	 * 	struct sample_id		sample_id;
+	 * };
+	 */
+	PERF_RECORD_MMAP2			= 10,
 
 	PERF_RECORD_MAX,			/* non-ABI */
 };
