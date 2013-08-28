@@ -53,10 +53,12 @@ static void i915_gem_object_update_fence(struct drm_i915_gem_object *obj,
 					 struct drm_i915_fence_reg *fence,
 					 bool enable);
 
-static int i915_gem_inactive_shrink(struct shrinker *shrinker,
-				    struct shrink_control *sc);
+static unsigned long i915_gem_inactive_count(struct shrinker *shrinker,
+					     struct shrink_control *sc);
+static unsigned long i915_gem_inactive_scan(struct shrinker *shrinker,
+					    struct shrink_control *sc);
 static long i915_gem_purge(struct drm_i915_private *dev_priv, long target);
-static void i915_gem_shrink_all(struct drm_i915_private *dev_priv);
+static long i915_gem_shrink_all(struct drm_i915_private *dev_priv);
 static void i915_gem_object_truncate(struct drm_i915_gem_object *obj);
 
 static inline void i915_gem_object_fence_lost(struct drm_i915_gem_object *obj)
@@ -1727,15 +1729,21 @@ i915_gem_purge(struct drm_i915_private *dev_priv, long target)
 	return __i915_gem_shrink(dev_priv, target, true);
 }
 
-static void
+static long
 i915_gem_shrink_all(struct drm_i915_private *dev_priv)
 {
 	struct drm_i915_gem_object *obj, *next;
+	long freed = 0;
 
 	i915_gem_evict_everything(dev_priv->dev);
 
-	list_for_each_entry_safe(obj, next, &dev_priv->mm.unbound_list, gtt_list)
+	list_for_each_entry_safe(obj, next, &dev_priv->mm.unbound_list,
+				 global_list) {
+		if (obj->pages_pin_count == 0)
+			freed += obj->base.size >> PAGE_SHIFT;
 		i915_gem_object_put_pages(obj);
+	}
+	return freed;
 }
 
 static int
@@ -4234,7 +4242,8 @@ i915_gem_load(struct drm_device *dev)
 
 	dev_priv->mm.interruptible = true;
 
-	dev_priv->mm.inactive_shrinker.shrink = i915_gem_inactive_shrink;
+	dev_priv->mm.inactive_shrinker.scan_objects = i915_gem_inactive_scan;
+	dev_priv->mm.inactive_shrinker.count_objects = i915_gem_inactive_count;
 	dev_priv->mm.inactive_shrinker.seeks = DEFAULT_SEEKS;
 	register_shrinker(&dev_priv->mm.inactive_shrinker);
 }
@@ -4457,8 +4466,8 @@ static bool mutex_is_locked_by(struct mutex *mutex, struct task_struct *task)
 #endif
 }
 
-static int
-i915_gem_inactive_shrink(struct shrinker *shrinker, struct shrink_control *sc)
+static unsigned long
+i915_gem_inactive_count(struct shrinker *shrinker, struct shrink_control *sc)
 {
 	struct drm_i915_private *dev_priv =
 		container_of(shrinker,
@@ -4466,9 +4475,8 @@ i915_gem_inactive_shrink(struct shrinker *shrinker, struct shrink_control *sc)
 			     mm.inactive_shrinker);
 	struct drm_device *dev = dev_priv->dev;
 	struct drm_i915_gem_object *obj;
-	int nr_to_scan = sc->nr_to_scan;
 	bool unlock = true;
-	int cnt;
+	unsigned long count;
 
 	if (!mutex_trylock(&dev->struct_mutex)) {
 		if (!mutex_is_locked_by(&dev->struct_mutex, current))
@@ -4480,24 +4488,139 @@ i915_gem_inactive_shrink(struct shrinker *shrinker, struct shrink_control *sc)
 		unlock = false;
 	}
 
-	if (nr_to_scan) {
-		nr_to_scan -= i915_gem_purge(dev_priv, nr_to_scan);
-		if (nr_to_scan > 0)
-			nr_to_scan -= __i915_gem_shrink(dev_priv, nr_to_scan,
-							false);
-		if (nr_to_scan > 0)
-			i915_gem_shrink_all(dev_priv);
-	}
-
-	cnt = 0;
-	list_for_each_entry(obj, &dev_priv->mm.unbound_list, gtt_list)
+	count = 0;
+	list_for_each_entry(obj, &dev_priv->mm.unbound_list, global_list)
 		if (obj->pages_pin_count == 0)
-			cnt += obj->base.size >> PAGE_SHIFT;
-	list_for_each_entry(obj, &dev_priv->mm.inactive_list, mm_list)
+			count += obj->base.size >> PAGE_SHIFT;
+
+	list_for_each_entry(obj, &dev_priv->mm.bound_list, global_list) {
+		if (obj->active)
+			continue;
+
 		if (obj->pin_count == 0 && obj->pages_pin_count == 0)
-			cnt += obj->base.size >> PAGE_SHIFT;
+			count += obj->base.size >> PAGE_SHIFT;
+	}
 
 	if (unlock)
 		mutex_unlock(&dev->struct_mutex);
-	return cnt;
+	return count;
+}
+
+/* All the new VM stuff */
+unsigned long i915_gem_obj_offset(struct drm_i915_gem_object *o,
+				  struct i915_address_space *vm)
+{
+	struct drm_i915_private *dev_priv = o->base.dev->dev_private;
+	struct i915_vma *vma;
+
+	if (vm == &dev_priv->mm.aliasing_ppgtt->base)
+		vm = &dev_priv->gtt.base;
+
+	BUG_ON(list_empty(&o->vma_list));
+	list_for_each_entry(vma, &o->vma_list, vma_link) {
+		if (vma->vm == vm)
+			return vma->node.start;
+
+	}
+	return -1;
+}
+
+bool i915_gem_obj_bound(struct drm_i915_gem_object *o,
+			struct i915_address_space *vm)
+{
+	struct i915_vma *vma;
+
+	list_for_each_entry(vma, &o->vma_list, vma_link)
+		if (vma->vm == vm && drm_mm_node_allocated(&vma->node))
+			return true;
+
+	return false;
+}
+
+bool i915_gem_obj_bound_any(struct drm_i915_gem_object *o)
+{
+	struct drm_i915_private *dev_priv = o->base.dev->dev_private;
+	struct i915_address_space *vm;
+
+	list_for_each_entry(vm, &dev_priv->vm_list, global_link)
+		if (i915_gem_obj_bound(o, vm))
+			return true;
+
+	return false;
+}
+
+unsigned long i915_gem_obj_size(struct drm_i915_gem_object *o,
+				struct i915_address_space *vm)
+{
+	struct drm_i915_private *dev_priv = o->base.dev->dev_private;
+	struct i915_vma *vma;
+
+	if (vm == &dev_priv->mm.aliasing_ppgtt->base)
+		vm = &dev_priv->gtt.base;
+
+	BUG_ON(list_empty(&o->vma_list));
+
+	list_for_each_entry(vma, &o->vma_list, vma_link)
+		if (vma->vm == vm)
+			return vma->node.size;
+
+	return 0;
+}
+
+static unsigned long
+i915_gem_inactive_scan(struct shrinker *shrinker, struct shrink_control *sc)
+{
+	struct drm_i915_private *dev_priv =
+		container_of(shrinker,
+			     struct drm_i915_private,
+			     mm.inactive_shrinker);
+	struct drm_device *dev = dev_priv->dev;
+	int nr_to_scan = sc->nr_to_scan;
+	unsigned long freed;
+	bool unlock = true;
+
+	if (!mutex_trylock(&dev->struct_mutex)) {
+		if (!mutex_is_locked_by(&dev->struct_mutex, current))
+			return 0;
+
+		if (dev_priv->mm.shrinker_no_lock_stealing)
+			return 0;
+
+		unlock = false;
+	}
+
+	freed = i915_gem_purge(dev_priv, nr_to_scan);
+	if (freed < nr_to_scan)
+		freed += __i915_gem_shrink(dev_priv, nr_to_scan,
+							false);
+	if (freed < nr_to_scan)
+		freed += i915_gem_shrink_all(dev_priv);
+
+	if (unlock)
+		mutex_unlock(&dev->struct_mutex);
+	return freed;
+}
+
+struct i915_vma *i915_gem_obj_to_vma(struct drm_i915_gem_object *obj,
+				     struct i915_address_space *vm)
+{
+	struct i915_vma *vma;
+	list_for_each_entry(vma, &obj->vma_list, vma_link)
+		if (vma->vm == vm)
+			return vma;
+
+	return NULL;
+}
+
+struct i915_vma *
+i915_gem_obj_lookup_or_create_vma(struct drm_i915_gem_object *obj,
+				  struct i915_address_space *vm)
+{
+	struct i915_vma *vma;
+
+	vma = i915_gem_obj_to_vma(obj, vm);
+	if (!vma)
+		vma = i915_gem_vma_create(obj, vm);
+
+	return vma;
 }
