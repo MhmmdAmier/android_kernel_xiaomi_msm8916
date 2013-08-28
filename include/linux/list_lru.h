@@ -13,8 +13,6 @@
 /* list_lru_walk_cb has to always return one of those */
 enum lru_status {
 	LRU_REMOVED,		/* item removed from list */
-	LRU_REMOVED_RETRY,	/* item removed, but lock has been
-				   dropped and reacquired */
 	LRU_ROTATE,		/* item referenced, give another pass */
 	LRU_SKIP,		/* item cannot be locked, skip */
 	LRU_RETRY,		/* item not freeable. May drop the lock
@@ -29,16 +27,21 @@ struct list_lru_node {
 } ____cacheline_aligned_in_smp;
 
 struct list_lru {
-	struct list_lru_node	*node;
+	/*
+	 * Because we use a fixed-size array, this struct can be very big if
+	 * MAX_NUMNODES is big. If this becomes a problem this is fixable by
+	 * turning this into a pointer and dynamically allocating this to
+	 * nr_node_ids. This quantity is firwmare-provided, and still would
+	 * provide room for all nodes at the cost of a pointer lookup and an
+	 * extra allocation. Because that allocation will most likely come from
+	 * a different slab cache than the main structure holding this
+	 * structure, we may very well fail.
+	 */
+	struct list_lru_node	node[MAX_NUMNODES];
 	nodemask_t		active_nodes;
 };
 
-void list_lru_destroy(struct list_lru *lru);
-int list_lru_init_key(struct list_lru *lru, struct lock_class_key *key);
-static inline int list_lru_init(struct list_lru *lru)
-{
-	return list_lru_init_key(lru, NULL);
-}
+int list_lru_init(struct list_lru *lru);
 
 /**
  * list_lru_add: add an element to the lru list's tail
@@ -134,4 +137,21 @@ list_lru_walk(struct list_lru *lru, list_lru_walk_cb isolate,
 	}
 	return isolated;
 }
+
+typedef void (*list_lru_dispose_cb)(struct list_head *dispose_list);
+/**
+ * list_lru_dispose_all: forceably flush all elements in an @lru
+ * @lru: the lru pointer
+ * @dispose: callback function to be called for each lru list.
+ *
+ * This function will forceably isolate all elements into the dispose list, and
+ * call the @dispose callback to flush the list. Please note that the callback
+ * should expect items in any state, clean or dirty, and be able to flush all of
+ * them.
+ *
+ * Return value: how many objects were freed. It should be equal to all objects
+ * in the list_lru.
+ */
+unsigned long
+list_lru_dispose_all(struct list_lru *lru, list_lru_dispose_cb dispose);
 #endif /* _LRU_LIST_H */
