@@ -262,11 +262,6 @@ struct bonding {
 #endif /* CONFIG_DEBUG_FS */
 };
 
-static inline bool bond_vlan_used(struct bonding *bond)
-{
-	return !list_empty(&bond->vlan_list);
-}
-
 #define bond_slave_get_rcu(dev) \
 	((struct slave *) rcu_dereference(dev->rx_handler_data))
 
