@@ -682,6 +682,8 @@ static inline int ipv6_addr_diff(const struct in6_addr *a1, const struct in6_add
 	return __ipv6_addr_diff(a1, a2, sizeof(struct in6_addr));
 }
 
+extern int ip6_dst_hoplimit(struct dst_entry *dst);
+
 /*
  *	Header manipulation
  */
