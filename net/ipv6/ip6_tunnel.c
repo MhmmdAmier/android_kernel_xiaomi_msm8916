@@ -1029,8 +1029,7 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
 		goto tx_err_dst_release;
 	}
 
-	if (!net_eq(t->net, dev_net(dev)))
-		skb_scrub_packet(skb, true);
+	skb_scrub_packet(skb, !net_eq(t->net, dev_net(dev)));
 
 	/*
 	 * Okay, now see if we can stuff it in the buffer as-is.
@@ -1049,7 +1048,6 @@ static int ip6_tnl_xmit2(struct sk_buff *skb,
 		consume_skb(skb);
 		skb = new_skb;
 	}
-	skb_dst_drop(skb);
 	if (!use_cache) {
 		skb_dst_set(skb, dst);
 		ndst = NULL;
