@@ -31,15 +31,6 @@ enum early_consoles {
 
 extern int of_early_console(void *version);
 
-/*
- * OF address retreival & translation
- */
-
-#ifdef CONFIG_PCI
-extern unsigned long pci_address_to_pio(phys_addr_t address);
-#define pci_address_to_pio pci_address_to_pio
-#endif	/* CONFIG_PCI */
-
 /* Parse the ibm,dma-window property of an OF node into the busno, phys and
  * size parameters.
  */

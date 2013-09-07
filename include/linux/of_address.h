@@ -26,10 +26,7 @@ extern const __be32 *of_get_address(struct device_node *dev, int index,
 extern const __be32 *of_get_address_by_name(struct device_node *dev,
 			   const char *name, u64 *size, unsigned int *flags);
 
-#ifndef pci_address_to_pio
-static inline unsigned long pci_address_to_pio(phys_addr_t addr) { return -1; }
-#define pci_address_to_pio pci_address_to_pio
-#endif
+extern unsigned long pci_address_to_pio(phys_addr_t addr);
 
 #else /* CONFIG_OF_ADDRESS */
 #ifndef of_address_to_resource

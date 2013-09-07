@@ -39,8 +39,5 @@ static inline void x86_dtb_init(void) { }
 
 extern char cmd_line[COMMAND_LINE_SIZE];
 
-#define pci_address_to_pio pci_address_to_pio
-unsigned long pci_address_to_pio(phys_addr_t addr);
-
 #endif /* __ASSEMBLY__ */
 #endif

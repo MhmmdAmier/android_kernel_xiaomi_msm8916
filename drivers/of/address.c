@@ -581,6 +581,14 @@ const __be32 *of_get_address_by_name(struct device_node *dev, const char *name,
 }
 EXPORT_SYMBOL(of_get_address_by_name);
 
+unsigned long __weak pci_address_to_pio(phys_addr_t address)
+{
+	if (address > IO_SPACE_LIMIT)
+		return (unsigned long)-1;
+
+	return (unsigned long) address;
+}
+
 static int __of_address_to_resource(struct device_node *dev,
 		const __be32 *addrp, u64 size, unsigned int flags,
 		const char *name, struct resource *r)
