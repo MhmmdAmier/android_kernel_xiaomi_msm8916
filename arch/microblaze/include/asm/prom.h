@@ -23,8 +23,6 @@
 #include <asm/irq.h>
 #include <linux/atomic.h>
 
-#define HAVE_ARCH_DEVTREE_FIXUPS
-
 /* Other Prototypes */
 enum early_consoles {
 	UARTLITE = 1,
