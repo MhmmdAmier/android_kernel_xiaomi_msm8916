@@ -2420,7 +2420,7 @@ path_mountpoint(int dfd, const char *name, struct path *path, unsigned int flags
 	if (err)
 		goto out;
 
-	err = umount_lookup_last(&nd, path);
+	err = mountpoint_last(&nd, path);
 	while (err > 0) {
 		void *cookie;
 		struct path link = *path;
