@@ -729,7 +729,7 @@ static __always_inline void set_root_rcu(struct nameidata *nd)
 	}
 }
 
-static __always_inline int __vfs_follow_link(struct nameidata *nd, const char *link)
+static __always_inline int __follow_link(struct nameidata *nd, const char *link)
 {
 	int ret;
 
@@ -943,7 +943,7 @@ follow_link(struct path *link, struct nameidata *nd, void **p)
 	error = 0;
 	s = nd_get_link(nd);
 	if (s) {
-		error = __vfs_follow_link(nd, s);
+		error = __follow_link(nd, s);
 		if (unlikely(error))
 			put_link(nd, link, *p);
 	}
@@ -4416,11 +4416,6 @@ int generic_readlink(struct dentry *dentry, char __user *buffer, int buflen)
 	return res;
 }
 
-int vfs_follow_link(struct nameidata *nd, const char *link)
-{
-	return __vfs_follow_link(nd, link);
-}
-
 /* get the link contents into pagecache */
 static char *page_getlink(struct dentry * dentry, struct page **ppage)
 {
@@ -4529,7 +4524,6 @@ EXPORT_SYMBOL(page_symlink_inode_operations);
 EXPORT_SYMBOL(kern_path);
 EXPORT_SYMBOL(vfs_path_lookup);
 EXPORT_SYMBOL(unlock_rename);
-EXPORT_SYMBOL(vfs_follow_link);
 EXPORT_SYMBOL(generic_permission);
 EXPORT_SYMBOL(vfs_readlink);
 EXPORT_SYMBOL(dentry_unhash);
