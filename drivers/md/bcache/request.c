@@ -527,6 +527,13 @@ static bool check_should_bypass(struct cached_dev *dc, struct bio *bio)
 		goto skip;
 	}
 
+	if (bypass_torture_test(dc)) {
+		if ((get_random_int() & 3) == 3)
+			goto skip;
+		else
+			goto rescale;
+	}
+
 	if (!congested && !dc->sequential_cutoff)
 		goto rescale;
 
@@ -600,6 +607,7 @@ struct search {
 	unsigned		recoverable:1;
 	unsigned		unaligned_bvec:1;
 	unsigned		write:1;
+	unsigned		read_dirty_data:1;
 
 	unsigned long		start_time;
 
@@ -667,6 +675,9 @@ static int cache_lookup_fn(struct btree_op *op, struct btree *b, struct bkey *k)
 	ptr = 0;
 
 	PTR_BUCKET(b->c, k, ptr)->prio = INITIAL_PRIO;
+
+	if (KEY_DIRTY(k))
+		s->read_dirty_data = true;
 
 	n = bch_bio_split(bio, min_t(uint64_t, INT_MAX,
 				     KEY_OFFSET(k) - bio->bi_sector),
@@ -893,7 +904,8 @@ static void cached_dev_read_done(struct closure *cl)
 		s->cache_miss = NULL;
 	}
 
-	if (verify(dc, &s->bio.bio) && s->recoverable && !s->unaligned_bvec)
+	if (verify(dc, &s->bio.bio) && s->recoverable &&
+	    !s->unaligned_bvec && !s->read_dirty_data)
 		bch_data_verify(dc, s->orig_bio);
 
 	bio_complete(s);
