@@ -392,7 +392,7 @@ struct mem_cgroup {
 
 	/*
 	 * If true then this group has increased parents' children_in_excess
-         * when it got over the soft limit.
+	 * when it got over the soft limit.
 	 * When a group falls bellow the soft limit, parents' children_in_excess
 	 * is decreased and soft_contributed changed to false.
 	 */
@@ -1083,12 +1083,12 @@ static bool mem_cgroup_event_ratelimit(struct mem_cgroup *memcg,
 }
 
 /*
- * Called from rate-limitted memcg_check_events when enough
+ * Called from rate-limited memcg_check_events when enough
  * MEM_CGROUP_TARGET_SOFTLIMIT events are accumulated and it makes sure
- * that all the parents up the hierarchy will be noticed that this group
+ * that all the parents up the hierarchy will be notified that this group
  * is in excess or that it is not in excess anymore. mmecg->soft_contributed
  * makes the transition a single action whenever the state flips from one to
- * other.
+ * the other.
  */
 static void mem_cgroup_update_soft_limit(struct mem_cgroup *memcg)
 {
@@ -2168,8 +2168,8 @@ static bool mem_cgroup_reclaimable(struct mem_cgroup *memcg, bool noswap)
 /*
  * A group is eligible for the soft limit reclaim under the given root
  * hierarchy if
- * 	a) it is over its soft limit
- * 	b) any parent up the hierarchy is over its soft limit
+ *	a) it is over its soft limit
+ *	b) any parent up the hierarchy is over its soft limit
  *
  * If the given group doesn't have any children over the limit then it
  * doesn't make any sense to iterate its subtree.
@@ -2191,7 +2191,7 @@ mem_cgroup_soft_reclaim_eligible(struct mem_cgroup *memcg,
 	 * If any parent up to the root in the hierarchy is over its soft limit
 	 * then we have to obey and reclaim from this group as well.
 	 */
-	while((parent = parent_mem_cgroup(parent))) {
+	while ((parent = parent_mem_cgroup(parent))) {
 		if (res_counter_soft_limit_excess(&parent->res))
 			return VISIT;
 		if (parent == root)
