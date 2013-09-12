@@ -4782,7 +4782,6 @@ int ext4_setattr(struct dentry *dentry, struct iattr *attr)
 
 	if (attr->ia_valid & ATTR_SIZE) {
 		handle_t *handle;
-		loff_t oldsize = inode->i_size;
 		int shrink = (attr->ia_size <= inode->i_size);
 		loff_t oldsize_page = i_size_read(inode);
 
@@ -4855,7 +4854,7 @@ int ext4_setattr(struct dentry *dentry, struct iattr *attr)
 		 * Truncate pagecache after we've waited for commit
 		 * in data=journal mode to make pages freeable.
 		 */
-		truncate_pagecache(inode, oldsize_page, inode->i_size);
+		truncate_pagecache(inode, inode->i_size);
 		if (shrink)
 			ext4_truncate(inode);
 	}
