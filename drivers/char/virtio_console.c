@@ -2141,7 +2141,7 @@ static struct virtio_device_id rproc_serial_id_table[] = {
 static unsigned int rproc_serial_features[] = {
 };
 
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 static int virtcons_freeze(struct virtio_device *vdev)
 {
 	struct ports_device *portdev;
@@ -2219,7 +2219,7 @@ static struct virtio_driver virtio_console = {
 	.probe =	virtcons_probe,
 	.remove =	virtcons_remove,
 	.config_changed = config_intr,
-#ifdef CONFIG_PM
+#ifdef CONFIG_PM_SLEEP
 	.freeze =	virtcons_freeze,
 	.restore =	virtcons_restore,
 #endif
