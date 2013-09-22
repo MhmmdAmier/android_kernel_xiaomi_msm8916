@@ -177,7 +177,6 @@ SYSCALL_DEFINE1(syncfs, int, fd)
  */
 int vfs_fsync_range(struct file *file, loff_t start, loff_t end, int datasync)
 {
-
 	struct inode *inode = file->f_mapping->host;
 
 #ifdef CONFIG_DYNAMIC_FSYNC
@@ -185,8 +184,7 @@ int vfs_fsync_range(struct file *file, loff_t start, loff_t end, int datasync)
 		return 0;
 #endif
 
-
-	if (!file->f_op || !file->f_op->fsync)
+	if (!file->f_op->fsync)
 		return -EINVAL;
 	if (!datasync && (inode->i_state & I_DIRTY_TIME)) {
 		spin_lock(&inode->i_lock);
