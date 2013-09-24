@@ -2046,13 +2046,11 @@ static bool mem_cgroup_reclaimable(struct mem_cgroup *memcg, bool noswap)
 #endif
 
 /*
- * A group is eligible for the soft limit reclaim under the given root
- * hierarchy if
- *	a) it is over its soft limit
+ * A group is eligible for the soft limit reclaim if
+ * 	a) it is over its soft limit
  *	b) any parent up the hierarchy is over its soft limit
  */
-bool mem_cgroup_soft_reclaim_eligible(struct mem_cgroup *memcg,
-		struct mem_cgroup *root)
+bool mem_cgroup_soft_reclaim_eligible(struct mem_cgroup *memcg)
 {
 	struct mem_cgroup *parent = memcg;
 
@@ -2060,14 +2058,12 @@ bool mem_cgroup_soft_reclaim_eligible(struct mem_cgroup *memcg,
 		return true;
 
 	/*
-	 * If any parent up to the root in the hierarchy is over its soft limit
-	 * then we have to obey and reclaim from this group as well.
+	 * If any parent up the hierarchy is over its soft limit then we
+	 * have to obey and reclaim from this group as well.
 	 */
 	while ((parent = parent_mem_cgroup(parent))) {
 		if (res_counter_soft_limit_excess(&parent->res))
 			return true;
-		if (parent == root)
-			break;
 	}
 
 	return false;
