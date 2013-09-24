@@ -1145,15 +1145,6 @@ struct mem_cgroup *try_get_mem_cgroup_from_mm(struct mm_struct *mm)
 	return memcg;
 }
 
-static enum mem_cgroup_filter_t
-mem_cgroup_filter(struct mem_cgroup *memcg, struct mem_cgroup *root,
-		mem_cgroup_iter_filter cond)
-{
-	if (!cond)
-		return VISIT;
-	return cond(memcg, root);
-}
-
 /*
  * Returns a next (in a pre-order walk) alive memcg (with elevated css
  * ref. count) or NULL if the whole root's subtree has been visited.
@@ -1161,7 +1152,7 @@ mem_cgroup_filter(struct mem_cgroup *memcg, struct mem_cgroup *root,
  * helper function to be used by mem_cgroup_iter
  */
 static struct mem_cgroup *__mem_cgroup_iter_next(struct mem_cgroup *root,
-		struct mem_cgroup *last_visited, mem_cgroup_iter_filter cond)
+		struct mem_cgroup *last_visited)
 {
 	struct cgroup_subsys_state *prev_css, *next_css;
 
@@ -1179,31 +1170,11 @@ skip_node:
 	if (next_css) {
 		struct mem_cgroup *mem = mem_cgroup_from_css(next_css);
 
-		switch (mem_cgroup_filter(mem, root, cond)) {
-		case SKIP:
+		if (css_tryget(&mem->css))
+			return mem;
+		else {
 			prev_css = next_css;
 			goto skip_node;
-		case SKIP_TREE:
-			if (mem == root)
-				return NULL;
-			/*
-			 * css_rightmost_descendant is not an optimal way to
-			 * skip through a subtree (especially for imbalanced
-			 * trees leaning to right) but that's what we have right
-			 * now. More effective solution would be traversing
-			 * right-up for first non-NULL without calling
-			 * css_next_descendant_pre afterwards.
-			 */
-			prev_css = css_rightmost_descendant(next_css);
-			goto skip_node;
-		case VISIT:
-			if (css_tryget(&mem->css))
-				return mem;
-			else {
-				prev_css = next_css;
-				goto skip_node;
-			}
-			break;
 		}
 	}
 
@@ -1215,7 +1186,6 @@ skip_node:
  * @root: hierarchy root
  * @prev: previously returned memcg, NULL on first invocation
  * @reclaim: cookie for shared reclaim walks, NULL for full walks
- * @cond: filter for visited nodes, NULL for no filter
  *
  * Returns references to children of the hierarchy below @root, or
  * @root itself, or %NULL after a full round-trip.
@@ -1228,19 +1198,16 @@ skip_node:
  * divide up the memcgs in the hierarchy among all concurrent
  * reclaimers operating on the same zone and priority.
  */
-struct mem_cgroup *mem_cgroup_iter_cond(struct mem_cgroup *root,
+struct mem_cgroup *mem_cgroup_iter(struct mem_cgroup *root,
 				   struct mem_cgroup *prev,
-				   struct mem_cgroup_reclaim_cookie *reclaim,
-				   mem_cgroup_iter_filter cond)
+				   struct mem_cgroup_reclaim_cookie *reclaim)
 {
 	struct mem_cgroup *memcg = NULL;
 	struct mem_cgroup *last_visited = NULL;
 	unsigned long uninitialized_var(dead_count);
 
-	if (mem_cgroup_disabled()) {
-		/* first call must return non-NULL, second return NULL */
-		return (struct mem_cgroup *)(unsigned long)!prev;
-	}
+	if (mem_cgroup_disabled())
+		return NULL;
 
 	if (!root)
 		root = root_mem_cgroup;
@@ -1251,9 +1218,7 @@ struct mem_cgroup *mem_cgroup_iter_cond(struct mem_cgroup *root,
 	if (!root->use_hierarchy && root != root_mem_cgroup) {
 		if (prev)
 			goto out_css_put;
-		if (mem_cgroup_filter(root, root, cond) == VISIT)
-			return root;
-		return NULL;
+		return root;
 	}
 
 	rcu_read_lock();
@@ -1294,7 +1259,7 @@ struct mem_cgroup *mem_cgroup_iter_cond(struct mem_cgroup *root,
 			}
 		}
 
-		memcg = __mem_cgroup_iter_next(root, last_visited, cond);
+		memcg = __mem_cgroup_iter_next(root, last_visited);
 
 		if (reclaim) {
 			if (last_visited && last_visited != root)
@@ -1310,11 +1275,7 @@ struct mem_cgroup *mem_cgroup_iter_cond(struct mem_cgroup *root,
 				reclaim->generation = iter->generation;
 		}
 
-		/*
-		 * We have finished the whole tree walk or no group has been
-		 * visited because filter told us to skip the root node.
-		 */
-		if (!memcg && (prev || (cond && !last_visited)))
+		if (prev && !memcg)
 			goto out_unlock;
 	}
 out_unlock:
@@ -2103,14 +2064,13 @@ static bool mem_cgroup_reclaimable(struct mem_cgroup *memcg, bool noswap)
  * If the given group doesn't have any children over the limit then it
  * doesn't make any sense to iterate its subtree.
  */
-enum mem_cgroup_filter_t
-mem_cgroup_soft_reclaim_eligible(struct mem_cgroup *memcg,
+bool mem_cgroup_soft_reclaim_eligible(struct mem_cgroup *memcg,
 		struct mem_cgroup *root)
 {
 	struct mem_cgroup *parent = memcg;
 
 	if (res_counter_soft_limit_excess(&memcg->res))
-		return VISIT;
+		return true;
 
 	/*
 	 * If any parent up to the root in the hierarchy is over its soft limit
@@ -2118,12 +2078,12 @@ mem_cgroup_soft_reclaim_eligible(struct mem_cgroup *memcg,
 	 */
 	while ((parent = parent_mem_cgroup(parent))) {
 		if (res_counter_soft_limit_excess(&parent->res))
-			return VISIT;
+			return true;
 		if (parent == root)
 			break;
 	}
 
-	return SKIP;
+	return false;
 }
 
 static DEFINE_SPINLOCK(memcg_oom_lock);
