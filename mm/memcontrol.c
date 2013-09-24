@@ -139,7 +139,6 @@ static const char * const mem_cgroup_lru_names[] = {
  */
 enum mem_cgroup_events_target {
 	MEM_CGROUP_TARGET_THRESH,
-	MEM_CGROUP_TARGET_SOFTLIMIT,
 	MEM_CGROUP_TARGET_NUMAINFO,
 	MEM_CGROUP_NTARGETS,
 };
@@ -1033,9 +1032,6 @@ static bool mem_cgroup_event_ratelimit(struct mem_cgroup *memcg,
 		case MEM_CGROUP_TARGET_THRESH:
 			next = val + THRESHOLDS_EVENTS_TARGET;
 			break;
-		case MEM_CGROUP_TARGET_SOFTLIMIT:
-			next = val + SOFTLIMIT_EVENTS_TARGET;
-			break;
 		case MEM_CGROUP_TARGET_NUMAINFO:
 			next = val + NUMAINFO_EVENTS_TARGET;
 			break;
@@ -1049,48 +1045,6 @@ static bool mem_cgroup_event_ratelimit(struct mem_cgroup *memcg,
 }
 
 /*
- * Called from rate-limited memcg_check_events when enough
- * MEM_CGROUP_TARGET_SOFTLIMIT events are accumulated and it makes sure
- * that all the parents up the hierarchy will be notified that this group
- * is in excess or that it is not in excess anymore. mmecg->soft_contributed
- * makes the transition a single action whenever the state flips from one to
- * the other.
- */
-static void mem_cgroup_update_soft_limit(struct mem_cgroup *memcg)
-{
-	unsigned long long excess = res_counter_soft_limit_excess(&memcg->res);
-	struct mem_cgroup *parent = memcg;
-	int delta = 0;
-
-	spin_lock(&memcg->soft_lock);
-	if (excess) {
-		if (!memcg->soft_contributed) {
-			delta = 1;
-			memcg->soft_contributed = true;
-		}
-	} else {
-		if (memcg->soft_contributed) {
-			delta = -1;
-			memcg->soft_contributed = false;
-		}
-	}
-
-	/*
-	 * Necessary to update all ancestors when hierarchy is used
-	 * because their event counter is not touched.
-	 * We track children even outside the hierarchy for the root
-	 * cgroup because tree walk starting at root should visit
-	 * all cgroups and we want to prevent from pointless tree
-	 * walk if no children is below the limit.
-	 */
-	while (delta && (parent = parent_mem_cgroup(parent)))
-		atomic_add(delta, &parent->children_in_excess);
-	if (memcg != root_mem_cgroup && !root_mem_cgroup->use_hierarchy)
-		atomic_add(delta, &root_mem_cgroup->children_in_excess);
-	spin_unlock(&memcg->soft_lock);
-}
-
-/*
  * Check events in order.
  *
  */
@@ -1100,11 +1054,8 @@ static void memcg_check_events(struct mem_cgroup *memcg, struct page *page)
 	/* threshold event is triggered in finer grain than soft limit */
 	if (unlikely(mem_cgroup_event_ratelimit(memcg,
 						MEM_CGROUP_TARGET_THRESH))) {
-		bool do_softlimit;
 		bool do_numainfo __maybe_unused;
 
-		do_softlimit = mem_cgroup_event_ratelimit(memcg,
-						MEM_CGROUP_TARGET_SOFTLIMIT);
 #if MAX_NUMNODES > 1
 		do_numainfo = mem_cgroup_event_ratelimit(memcg,
 						MEM_CGROUP_TARGET_NUMAINFO);
@@ -1112,8 +1063,6 @@ static void memcg_check_events(struct mem_cgroup *memcg, struct page *page)
 		preempt_enable();
 
 		mem_cgroup_threshold(memcg);
-		if (unlikely(do_softlimit))
-			mem_cgroup_update_tree(memcg, page);
 #if MAX_NUMNODES > 1
 		if (unlikely(do_numainfo))
 			atomic_inc(&memcg->numainfo_events);
@@ -6417,7 +6366,6 @@ static void mem_cgroup_css_offline(struct cgroup *cont)
 	struct cgroup *iter;
 
 	mem_cgroup_invalidate_reclaim_iterators(memcg);
-
 	/*
 	 * This requires that offlining is serialized.  Right now that is
 	 * guaranteed because css_killed_work_fn() holds the cgroup_mutex.
