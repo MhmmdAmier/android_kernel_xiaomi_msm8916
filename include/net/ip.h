@@ -199,11 +199,7 @@ static inline u64 snmp_fold_field64(void __percpu *mib[], int offt, size_t syncp
 extern int snmp_mib_init(void __percpu *ptr[2], size_t mibsize, size_t align);
 extern void snmp_mib_free(void __percpu *ptr[2]);
 
-extern struct local_ports {
-	seqlock_t	lock;
-	int		range[2];
-} sysctl_local_ports;
-extern void inet_get_local_port_range(int *low, int *high);
+void inet_get_local_port_range(struct net *net, int *low, int *high);
 
 extern unsigned long *sysctl_local_reserved_ports;
 static inline int inet_is_reserved_local_port(int port)
