@@ -1017,23 +1017,16 @@ put_again:
 		rcu_read_unlock();
 		return;
 	}
-	br_read_unlock(&vfsmount_lock);
-
 	lock_mount_hash();
-	mnt_add_count(mnt, -1);
 	if (mnt_get_count(mnt)) {
+		rcu_read_unlock();
 		unlock_mount_hash();
 		return;
 	}
-#else
-	mnt_add_count(mnt, -1);
-	if (likely(mnt_get_count(mnt)))
-		return;
-	lock_mount_hash();
-#endif
 	if (unlikely(mnt->mnt_pinned)) {
 		mnt_add_count(mnt, mnt->mnt_pinned + 1);
 		mnt->mnt_pinned = 0;
+		rcu_read_unlock();
 		unlock_mount_hash();
 		acct_auto_close_mnt(&mnt->mnt);
 		goto put_again;
@@ -3016,9 +3009,8 @@ void kern_unmount(struct vfsmount *mnt)
 {
 	/* release long term mount so mount point can be released */
 	if (!IS_ERR_OR_NULL(mnt)) {
-		lock_mount_hash();
 		real_mount(mnt)->mnt_ns = NULL;
-		unlock_mount_hash();
+		synchronize_rcu();	/* yecchhh... */
 		mntput(mnt);
 	}
 }
