@@ -614,6 +614,12 @@ static int unlazy_walk(struct nameidata *nd, struct dentry *dentry)
 			goto err_root;
 	}
 
+	if (!lockref_get_not_dead(&parent->d_lockref)) {
+		nd->path.dentry = NULL;	
+		unlock_rcu_walk();
+		return -ECHILD;
+	}
+
 	/*
 	 * For a negative lookup, the lookup sequence point is the parents
 	 * sequence point, and it only needs to revalidate the parent dentry.
@@ -682,7 +688,6 @@ static int complete_walk(struct nameidata *nd)
 			unlock_rcu_walk();
 			return -ECHILD;
 		}
-		mntget(nd->path.mnt);
 		unlock_rcu_walk();
 	}
 
