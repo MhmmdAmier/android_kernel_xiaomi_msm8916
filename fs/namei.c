@@ -576,24 +576,15 @@ static int unlazy_walk(struct nameidata *nd, struct dentry *dentry)
 	BUG_ON(!(nd->flags & LOOKUP_RCU));
 
 	/*
-	 * Get a reference to the parent first: we're
-	 * going to make "path_put(nd->path)" valid in
-	 * non-RCU context for "terminate_walk()".
-	 *
-	 * If this doesn't work, return immediately with
-	 * RCU walking still active (and then we will do
-	 * the RCU walk cleanup in terminate_walk()).
+	 * After legitimizing the bastards, terminate_walk()
+	 * will do the right thing for non-RCU mode, and all our
+	 * subsequent exit cases should rcu_read_unlock()
+	 * before returning.  Do vfsmount first; if dentry
+	 * can't be legitimized, just set nd->path.dentry to NULL
+	 * and rely on dput(NULL) being a no-op.
 	 */
-	if (!lockref_get_not_dead(&parent->d_lockref))
+	if (!legitimize_mnt(nd->path.mnt, nd->m_seq))
 		return -ECHILD;
-
-	/*
-	 * After the mntget(), we terminate_walk() will do
-	 * the right thing for non-RCU mode, and all our
-	 * subsequent exit cases should unlock_rcu_walk()
-	 * before returning.
-	 */
-	mntget(nd->path.mnt);
 	nd->flags &= ~LOOKUP_RCU;
 
 	if (!lockref_get_not_dead(&parent->d_lockref)) {
@@ -678,13 +669,19 @@ static int complete_walk(struct nameidata *nd)
 		if (!(nd->flags & LOOKUP_ROOT))
 			nd->root.mnt = NULL;
 
+		if (!legitimize_mnt(nd->path.mnt, nd->m_seq)) {
+			unlock_rcu_walk();
+			return -ECHILD;
+		}
 		if (unlikely(!lockref_get_not_dead(&dentry->d_lockref))) {
 			unlock_rcu_walk();
+			mntput(nd->path.mnt);
 			return -ECHILD;
 		}
 		if (read_seqcount_retry(&dentry->d_seq, nd->seq)) {
 			unlock_rcu_walk();
 			dput(dentry);
+			mntput(nd->path.mnt);
 			return -ECHILD;
 		}
 		unlock_rcu_walk();
