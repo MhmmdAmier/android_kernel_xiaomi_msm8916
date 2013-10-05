@@ -3654,6 +3654,8 @@ int vfs_rmdir2(struct vfsmount *mnt, struct inode *dir, struct dentry *dentry)
 	mutex_lock(&dentry->d_inode->i_mutex);
 
 	error = -EBUSY;
+	if (is_local_mountpoint(dentry))
+		goto out;
 	if (d_mountpoint(dentry))
 		goto out;
 
@@ -3776,7 +3778,7 @@ int vfs_unlink2(struct vfsmount *mnt, struct inode *dir, struct dentry *dentry)
 		return -EPERM;
 
 	mutex_lock(&target->i_mutex);
-	if (d_mountpoint(dentry))
+	if (is_local_mountpoint(dentry) || d_mountpoint(dentry))
 		error = -EBUSY;
 	else {
 		error = security_inode_unlink(dir, dentry);
@@ -4239,6 +4241,8 @@ int vfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 		mutex_lock(&target->i_mutex);
 
 	error = -EBUSY;
+	if (is_local_mountpoint(old_dentry) || is_local_mountpoint(new_dentry))
+		goto out;
 	if (d_mountpoint(old_dentry) || d_mountpoint(new_dentry))
 		goto out;
 
