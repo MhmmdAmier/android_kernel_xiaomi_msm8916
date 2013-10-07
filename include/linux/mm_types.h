@@ -176,8 +176,8 @@ struct page {
 	void *shadow;
 #endif
 
-#ifdef LAST_NID_NOT_IN_PAGE_FLAGS
-	int _last_nid;
+#ifdef LAST_NIDPID_NOT_IN_PAGE_FLAGS
+	int _last_nidpid;
 #endif
 #ifdef CONFIG_PAGE_OWNER
 	int order;
