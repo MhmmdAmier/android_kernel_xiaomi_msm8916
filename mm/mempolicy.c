@@ -2420,18 +2420,6 @@ int mpol_misplaced(struct page *page, struct vm_area_struct *vma, unsigned long 
 		 */
 		if (numa_migrate_deferred(current, last_cpupid))
 			goto out;
-
-#ifdef CONFIG_NUMA_BALANCING
-		/*
-		 * If the scheduler has just moved us away from our
-		 * preferred node, do not bother migrating pages yet.
-		 * This way a short and temporary process migration will
-		 * not cause excessive memory migration.
-		 */
-		if (thisnid != current->numa_preferred_nid &&
-				!current->numa_migrate_seq)
-			goto out;
-#endif
 	}
 
 	if (curnid != polnid)
