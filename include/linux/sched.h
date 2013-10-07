@@ -1647,13 +1647,17 @@ struct task_struct {
 #define TNF_NO_GROUP	0x02
 
 #ifdef CONFIG_NUMA_BALANCING
-extern void task_numa_fault(int last_node, int node, int pages, int flags);
+extern void task_numa_fault(int last_node, int node, int pages, bool migrated);
 extern pid_t task_numa_group_id(struct task_struct *p);
 extern void set_numabalancing_state(bool enabled);
 #else
 static inline void task_numa_fault(int last_node, int node, int pages,
 				   int flags)
 {
+}
+static inline pid_t task_numa_group_id(struct task_struct *p)
+{
+	return 0;
 }
 static inline void set_numabalancing_state(bool enabled)
 {
