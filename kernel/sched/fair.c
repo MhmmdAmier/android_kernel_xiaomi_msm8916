@@ -895,7 +895,7 @@ static unsigned int task_scan_max(struct task_struct *p)
  * the preferred node but still allow the scheduler to move the task again if
  * the nodes CPUs are overloaded.
  */
-unsigned int sysctl_numa_balancing_settle_count __read_mostly = 3;
+unsigned int sysctl_numa_balancing_settle_count __read_mostly = 4;
 
 static inline int task_faults_idx(int nid, int priv)
 {
@@ -991,7 +991,7 @@ static void task_numa_placement(struct task_struct *p)
 
 		/* Update the preferred nid and migrate task if possible */
 		p->numa_preferred_nid = max_nid;
-		p->numa_migrate_seq = 0;
+		p->numa_migrate_seq = 1;
 		migrate_task_to(p, preferred_cpu);
 	}
 }
@@ -5640,6 +5640,20 @@ static void move_task(struct task_struct *p, struct lb_env *env)
 	check_preempt_curr(env->dst_rq, p, 0);
 	if (task_notify_on_migrate(p))
 		per_cpu(dbs_boost_needed, env->dst_cpu) = true;
+#ifdef CONFIG_NUMA_BALANCING
+	if (p->numa_preferred_nid != -1) {
+		int src_nid = cpu_to_node(env->src_cpu);
+		int dst_nid = cpu_to_node(env->dst_cpu);
+
+		/*
+		 * If the load balancer has moved the task then limit
+		 * migrations from taking place in the short term in
+		 * case this is a short-lived migration.
+		 */
+		if (src_nid != dst_nid && dst_nid != p->numa_preferred_nid)
+			p->numa_migrate_seq = 0;
+	}
+#endif
 }
 
 /*
