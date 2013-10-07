@@ -1249,9 +1249,6 @@ select_task_rq_rt(struct task_struct *p, int sd_flag, int flags)
 {
 	struct task_struct *curr;
 	struct rq *rq;
-	int cpu;
-
-	cpu = task_cpu(p);
 
 	if (p->nr_cpus_allowed == 1)
 		goto out;
