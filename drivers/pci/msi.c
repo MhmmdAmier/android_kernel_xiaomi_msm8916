@@ -877,7 +877,7 @@ int pci_enable_msi_block(struct pci_dev *dev, int nvec)
 	int status, maxvec;
 	u16 msgctl;
 
-	if (!dev->msi_cap)
+	if (!dev->msi_cap || dev->current_state != PCI_D0)
 		return -EINVAL;
 
 	pci_read_config_word(dev, dev->msi_cap + PCI_MSI_FLAGS, &msgctl);
@@ -908,7 +908,7 @@ int pci_enable_msi_block_auto(struct pci_dev *dev, int *maxvec)
 	int ret, nvec;
 	u16 msgctl;
 
-	if (!dev->msi_cap)
+	if (!dev->msi_cap || dev->current_state != PCI_D0)
 		return -EINVAL;
 
 	pci_read_config_word(dev, dev->msi_cap + PCI_MSI_FLAGS, &msgctl);
@@ -999,7 +999,7 @@ int pci_enable_msix(struct pci_dev *dev, struct msix_entry *entries, int nvec)
 	int status, nr_entries;
 	int i, j;
 
-	if (!entries || !dev->msix_cap)
+	if (!entries || !dev->msix_cap || dev->current_state != PCI_D0)
 		return -EINVAL;
 
 	status = pci_msi_check_device(dev, nvec, PCI_CAP_ID_MSIX);
