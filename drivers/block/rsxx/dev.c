@@ -170,6 +170,12 @@ static void rsxx_make_request(struct request_queue *q, struct bio *bio)
 
 	might_sleep();
 
+	if (!card)
+		goto req_err;
+
+	if (bio_end_sector(bio) > get_capacity(card->gendisk))
+		goto req_err;
+
 	if (unlikely(card->halt)) {
 		st = -EFAULT;
 		goto req_err;
@@ -180,7 +186,7 @@ static void rsxx_make_request(struct request_queue *q, struct bio *bio)
 		goto req_err;
 	}
 
-	if (bio->bi_size == 0) {
+	if (bio->bi_iter.bi_size == 0) {
 		dev_err(CARD_TO_DEV(card), "size zero BIO!\n");
 		goto req_err;
 	}
@@ -200,7 +206,7 @@ static void rsxx_make_request(struct request_queue *q, struct bio *bio)
 
 	dev_dbg(CARD_TO_DEV(card), "BIO[%c]: meta: %p addr8: x%llx size: %d\n",
 		 bio_data_dir(bio) ? 'W' : 'R', bio_meta,
-		 (u64)bio->bi_sector << 9, bio->bi_size);
+		 (u64)bio->bi_iter.bi_sector << 9, bio->bi_iter.bi_size);
 
 	st = rsxx_dma_queue_bio(card, bio, &bio_meta->pending_dmas,
 				    bio_dma_done_cb, bio_meta);
