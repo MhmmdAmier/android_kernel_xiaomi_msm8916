@@ -997,6 +997,7 @@ static void request_write(struct cached_dev *dc, struct search *s)
 		trace_bcache_writeback(s->orig_bio);
 		s->op.cache_bio = bio;
 		bch_writeback_add(dc);
+		s->op.cache_bio = bio;
 
 
 		if (bio->bi_rw & REQ_FLUSH) {
