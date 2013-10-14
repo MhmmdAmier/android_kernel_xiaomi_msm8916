@@ -19,7 +19,6 @@
 #include <linux/string.h>
 #include <linux/errno.h>
 #include <linux/slab.h>
-#include <linux/random.h>
 
 #include <asm/setup.h>  /* for COMMAND_LINE_SIZE */
 #include <asm/page.h>
@@ -1100,14 +1099,3 @@ void __init unflatten_and_copy_device_tree(void)
 }
 
 #endif /* CONFIG_OF_EARLY_FLATTREE */
-
-/* Feed entire flattened device tree into the random pool */
-static int __init add_fdt_randomness(void)
-{
-	if (initial_boot_params)
-		add_device_randomness(initial_boot_params,
-				be32_to_cpu(initial_boot_params->totalsize));
-
-	return 0;
-}
-core_initcall(add_fdt_randomness);
