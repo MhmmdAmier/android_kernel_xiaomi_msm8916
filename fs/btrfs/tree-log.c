@@ -25,7 +25,6 @@
 #include "locking.h"
 #include "print-tree.h"
 #include "backref.h"
-#include "compat.h"
 #include "tree-log.h"
 #include "hash.h"
 
@@ -913,7 +912,7 @@ again:
 					    parent_objectid,
 					    victim_name,
 					    victim_name_len)) {
-				btrfs_inc_nlink(inode);
+				inc_nlink(inode);
 				btrfs_release_path(path);
 
 				ret = btrfs_unlink_inode(trans, root, dir,
@@ -981,7 +980,7 @@ again:
 				victim_parent = read_one_inode(root,
 							       parent_objectid);
 				if (victim_parent) {
-					btrfs_inc_nlink(inode);
+					inc_nlink(inode);
 					btrfs_release_path(path);
 
 					ret = btrfs_unlink_inode(trans, root,
@@ -1453,7 +1452,7 @@ static noinline int link_to_fixup_dir(struct btrfs_trans_handle *trans,
 		if (!inode->i_nlink)
 			set_nlink(inode, 1);
 		else
-			btrfs_inc_nlink(inode);
+			inc_nlink(inode);
 		ret = btrfs_update_inode(trans, root, inode);
 	} else if (ret == -EEXIST) {
 		ret = 0;
@@ -1804,7 +1803,7 @@ again:
 				goto out;
 			}
 
-			btrfs_inc_nlink(inode);
+			inc_nlink(inode);
 			ret = btrfs_unlink_inode(trans, root, dir, inode,
 						 name, name_len);
 			if (!ret)
