@@ -931,7 +931,11 @@ static int tcm_loop_drop_nexus(
 	struct se_session *se_sess;
 	struct tcm_loop_nexus *tl_nexus;
 
-	tl_nexus = tpg->tl_nexus;
+	if (!tl_hba)
+		return -ENODEV;
+
+	tl_nexus = tl_hba->tl_nexus;
+	
 	if (!tl_nexus)
 		return -ENODEV;
 
