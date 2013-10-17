@@ -2389,6 +2389,17 @@ static int mpage_prepare_extent_to_map(struct mpage_da_data *mpd)
 			if (mpd->wbc->sync_mode == WB_SYNC_NONE && left <= 0)
 				goto out;
 
+			/*
+			 * Accumulated enough dirty pages? This doesn't apply
+			 * to WB_SYNC_ALL mode. For integrity sync we have to
+			 * keep going because someone may be concurrently
+			 * dirtying pages, and we might have synced a lot of
+			 * newly appeared dirty pages, but have not synced all
+			 * of the old dirty pages.
+			 */
+			if (mpd->wbc->sync_mode == WB_SYNC_NONE && left <= 0)
+				goto out;
+
 			/* If we can't merge this page, we are done. */
 			if (mpd->map.m_len > 0 && mpd->next_page != page->index)
 				goto out;
