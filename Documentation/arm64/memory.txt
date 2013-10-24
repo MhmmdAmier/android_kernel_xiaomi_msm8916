@@ -40,6 +40,8 @@ ffffffbffa000000	ffffffbffaffffff	  16MB		PCI I/O space
 
 ffffffbffb000000	ffffffbffbbfffff	  12MB		[guard]
 
+ffffffbffbe10000	ffffffbcffffffff	  ~2MB		[guard]
+
 ffffffbffbc00000	ffffffbffbdfffff	   2MB		fixed mappings
 
 ffffffbffbe00000	ffffffbffbffffff	   2MB		[guard]
