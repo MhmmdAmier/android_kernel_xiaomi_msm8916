@@ -12,8 +12,8 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, you can access it online at
- * http://www.gnu.org/licenses/gpl-2.0.html.
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
  *
  * Copyright IBM Corporation, 2001
  *
@@ -127,11 +127,13 @@ static struct lock_class_key rcu_sched_lock_key;
 struct lockdep_map rcu_sched_lock_map =
 	STATIC_LOCKDEP_MAP_INIT("rcu_read_lock_sched", &rcu_sched_lock_key);
 EXPORT_SYMBOL_GPL(rcu_sched_lock_map);
-#endif
 
-#ifdef CONFIG_DEBUG_LOCK_ALLOC
+static struct lock_class_key rcu_callback_key;
+struct lockdep_map rcu_callback_map =
+	STATIC_LOCKDEP_MAP_INIT("rcu_callback", &rcu_callback_key);
+EXPORT_SYMBOL_GPL(rcu_callback_map);
 
-int debug_lockdep_rcu_enabled(void)
+int notrace debug_lockdep_rcu_enabled(void)
 {
 	return rcu_scheduler_active && debug_locks &&
 	       current->lockdep_recursion == 0;
@@ -198,6 +200,17 @@ void wait_rcu_gp(call_rcu_func_t crf)
 }
 EXPORT_SYMBOL_GPL(wait_rcu_gp);
 
+#ifdef CONFIG_PROVE_RCU
+/*
+ * wrapper function to avoid #include problems.
+ */
+int rcu_my_thread_group_empty(void)
+{
+	return thread_group_empty(current);
+}
+EXPORT_SYMBOL_GPL(rcu_my_thread_group_empty);
+#endif /* #ifdef CONFIG_PROVE_RCU */
+
 #ifdef CONFIG_DEBUG_OBJECTS_RCU_HEAD
 static inline void debug_init_rcu_head(struct rcu_head *head)
 {
@@ -207,43 +220,6 @@ static inline void debug_init_rcu_head(struct rcu_head *head)
 static inline void debug_rcu_head_free(struct rcu_head *head)
 {
 	debug_object_free(head, &rcuhead_debug_descr);
-}
-
-/*
- * fixup_init is called when:
- * - an active object is initialized
- */
-static int rcuhead_fixup_init(void *addr, enum debug_obj_state state)
-{
-	struct rcu_head *head = addr;
-
-	switch (state) {
-	case ODEBUG_STATE_ACTIVE:
-		/*
-		 * Ensure that queued callbacks are all executed.
-		 * If we detect that we are nested in a RCU read-side critical
-		 * section, we should simply fail, otherwise we would deadlock.
-		 * In !PREEMPT configurations, there is no way to tell if we are
-		 * in a RCU read-side critical section or not, so we never
-		 * attempt any fixup and just print a warning.
-		 */
-#ifndef CONFIG_PREEMPT
-		WARN_ON_ONCE(1);
-		return 0;
-#endif
-		if (rcu_preempt_depth() != 0 || preempt_count() != 0 ||
-		    irqs_disabled()) {
-			WARN_ON_ONCE(1);
-			return 0;
-		}
-		rcu_barrier();
-		rcu_barrier_sched();
-		rcu_barrier_bh();
-		debug_object_init(head, &rcuhead_debug_descr);
-		return 1;
-	default:
-		return 0;
-	}
 }
 
 /*
@@ -266,69 +242,8 @@ static int rcuhead_fixup_activate(void *addr, enum debug_obj_state state)
 		debug_object_init(head, &rcuhead_debug_descr);
 		debug_object_activate(head, &rcuhead_debug_descr);
 		return 0;
-
-	case ODEBUG_STATE_ACTIVE:
-		/*
-		 * Ensure that queued callbacks are all executed.
-		 * If we detect that we are nested in a RCU read-side critical
-		 * section, we should simply fail, otherwise we would deadlock.
-		 * In !PREEMPT configurations, there is no way to tell if we are
-		 * in a RCU read-side critical section or not, so we never
-		 * attempt any fixup and just print a warning.
-		 */
-#ifndef CONFIG_PREEMPT
-		WARN_ON_ONCE(1);
-		return 0;
-#endif
-		if (rcu_preempt_depth() != 0 || preempt_count() != 0 ||
-		    irqs_disabled()) {
-			WARN_ON_ONCE(1);
-			return 0;
-		}
-		rcu_barrier();
-		rcu_barrier_sched();
-		rcu_barrier_bh();
-		debug_object_activate(head, &rcuhead_debug_descr);
-		return 1;
 	default:
-		return 0;
-	}
-}
-
-/*
- * fixup_free is called when:
- * - an active object is freed
- */
-static int rcuhead_fixup_free(void *addr, enum debug_obj_state state)
-{
-	struct rcu_head *head = addr;
-
-	switch (state) {
-	case ODEBUG_STATE_ACTIVE:
-		/*
-		 * Ensure that queued callbacks are all executed.
-		 * If we detect that we are nested in a RCU read-side critical
-		 * section, we should simply fail, otherwise we would deadlock.
-		 * In !PREEMPT configurations, there is no way to tell if we are
-		 * in a RCU read-side critical section or not, so we never
-		 * attempt any fixup and just print a warning.
-		 */
-#ifndef CONFIG_PREEMPT
-		WARN_ON_ONCE(1);
-		return 0;
-#endif
-		if (rcu_preempt_depth() != 0 || preempt_count() != 0 ||
-		    irqs_disabled()) {
-			WARN_ON_ONCE(1);
-			return 0;
-		}
-		rcu_barrier();
-		rcu_barrier_sched();
-		rcu_barrier_bh();
-		debug_object_free(head, &rcuhead_debug_descr);
 		return 1;
-	default:
-		return 0;
 	}
 }
 
@@ -367,15 +282,13 @@ EXPORT_SYMBOL_GPL(destroy_rcu_head_on_stack);
 
 struct debug_obj_descr rcuhead_debug_descr = {
 	.name = "rcu_head",
-	.fixup_init = rcuhead_fixup_init,
 	.fixup_activate = rcuhead_fixup_activate,
-	.fixup_free = rcuhead_fixup_free,
 };
 EXPORT_SYMBOL_GPL(rcuhead_debug_descr);
 #endif /* #ifdef CONFIG_DEBUG_OBJECTS_RCU_HEAD */
 
 #if defined(CONFIG_TREE_RCU) || defined(CONFIG_TREE_PREEMPT_RCU) || defined(CONFIG_RCU_TRACE)
-void do_trace_rcu_torture_read(char *rcutorturename, struct rcu_head *rhp,
+void do_trace_rcu_torture_read(const char *rcutorturename, struct rcu_head *rhp,
 			       unsigned long secs,
 			       unsigned long c_old, unsigned long c)
 {
@@ -396,7 +309,7 @@ EXPORT_SYMBOL_GPL(do_trace_rcu_torture_read);
 #endif
 
 int rcu_cpu_stall_suppress __read_mostly; /* 1 = suppress stall warnings. */
-int rcu_cpu_stall_timeout __read_mostly = CONFIG_RCU_CPU_STALL_TIMEOUT;
+static int rcu_cpu_stall_timeout __read_mostly = CONFIG_RCU_CPU_STALL_TIMEOUT;
 
 module_param(rcu_cpu_stall_suppress, int, 0644);
 module_param(rcu_cpu_stall_timeout, int, 0644);
@@ -437,21 +350,3 @@ static int __init check_cpu_stall_init(void)
 early_initcall(check_cpu_stall_init);
 
 #endif /* #ifdef CONFIG_RCU_STALL_COMMON */
-
-/*
- * Hooks for cond_resched() and friends to avoid RCU CPU stall warnings.
- */
-
-DEFINE_PER_CPU(int, rcu_cond_resched_count);
-
-/*
- * Report a set of RCU quiescent states, for use by cond_resched()
- * and friends.  Out of line due to being called infrequently.
- */
-void rcu_resched(void)
-{
-	preempt_disable();
-	__this_cpu_write(rcu_cond_resched_count, 0);
-	rcu_note_context_switch(smp_processor_id());
-	preempt_enable();
-}
