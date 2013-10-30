@@ -8403,7 +8403,7 @@ static inline int nohz_kick_needed(struct rq *rq, int cpu, int *type)
 			goto need_kick_unlock;
 #endif
 
-		if (sd->flags & SD_ASYM_PACKING && nr_busy != sg->group_weight
+		if (sd->flags & SD_ASYM_PACKING
 		    && (cpumask_first_and(nohz.idle_cpus_mask,
 					  sched_domain_span(sd)) < cpu))
 			goto need_kick_unlock;
