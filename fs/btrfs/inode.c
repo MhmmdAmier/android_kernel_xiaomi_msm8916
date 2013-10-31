@@ -2046,10 +2046,8 @@ static noinline int record_one_backref(u64 inum, u64 offset, u64 root_id,
 		key.offset = offset;
 
 	ret = btrfs_search_slot(NULL, root, &key, path, 0, 0);
-	if (ret < 0) {
-		WARN_ON(1);
+	if (WARN_ON(ret < 0))
 		return ret;
-	}
 	ret = 0;
 
 	while (1) {
@@ -3167,8 +3165,7 @@ int btrfs_orphan_cleanup(struct btrfs_root *root)
 
 		/* if we have links, this was a truncate, lets do that */
 		if (inode->i_nlink) {
-			if (!S_ISREG(inode->i_mode)) {
-				WARN_ON(1);
+			if (WARN_ON(!S_ISREG(inode->i_mode))) {
 				iput(inode);
 				continue;
 			}
@@ -7969,8 +7966,7 @@ static int btrfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 		if (ret == -EEXIST) {
 			/* we shouldn't get
 			 * eexist without a new_inode */
-			if (!new_inode) {
-				WARN_ON(1);
+			if (WARN_ON(!new_inode)) {
 				return ret;
 			}
 		} else {
