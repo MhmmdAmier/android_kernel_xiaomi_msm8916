@@ -3973,7 +3973,7 @@ again:
 				    data_size > BTRFS_LEAF_DATA_SIZE(root)) {
 					if (data_size && !tried_avoid_double)
 						goto push_for_double;
-					split = 2 ;
+					split = 2;
 				}
 			}
 		}
