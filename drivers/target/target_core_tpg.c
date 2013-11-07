@@ -642,6 +642,13 @@ int core_tpg_set_initiator_node_tag(
 }
 EXPORT_SYMBOL(core_tpg_set_initiator_node_tag);
 
+static void core_tpg_lun_ref_release(struct percpu_ref *ref)
+{
+	struct se_lun *lun = container_of(ref, struct se_lun, lun_ref);
+
+	complete(&lun->lun_ref_comp);
+}
+
 static int core_tpg_setup_virtual_lun0(struct se_portal_group *se_tpg)
 {
 	/* Set in core_dev_setup_virtual_lun0() */
@@ -659,10 +666,17 @@ static int core_tpg_setup_virtual_lun0(struct se_portal_group *se_tpg)
 	spin_lock_init(&lun->lun_acl_lock);
 	spin_lock_init(&lun->lun_cmd_lock);
 	spin_lock_init(&lun->lun_sep_lock);
+	init_completion(&lun->lun_ref_comp);
 
-	ret = core_tpg_post_addlun(se_tpg, lun, lun_access, dev);
+	ret = percpu_ref_init(&lun->lun_ref, core_tpg_lun_ref_release);
 	if (ret < 0)
 		return ret;
+
+	ret = core_tpg_post_addlun(se_tpg, lun, lun_access, dev);
+	if (ret < 0) {
+		percpu_ref_cancel_init(&lun->lun_ref);
+		return ret;
+	}
 
 	return 0;
 }
@@ -704,6 +718,7 @@ int core_tpg_register(
 		spin_lock_init(&lun->lun_acl_lock);
 		spin_lock_init(&lun->lun_cmd_lock);
 		spin_lock_init(&lun->lun_sep_lock);
+		init_completion(&lun->lun_ref_comp);
 	}
 
 	se_tpg->se_tpg_type = se_tpg_type;
@@ -824,7 +839,7 @@ int core_tpg_post_addlun(
 {
 	int ret;
 
-	ret = core_dev_export(lun_ptr, tpg, lun);
+	ret = percpu_ref_init(&lun->lun_ref, core_tpg_lun_ref_release);
 	if (ret < 0)
 		return ret;
 
@@ -849,7 +864,7 @@ static void core_tpg_shutdown_lun(
 	lun->lun_shutdown = true;
 
 	core_clear_lun_from_tpg(lun, tpg);
-	transport_clear_lun_from_sessions(lun);
+	transport_clear_lun_ref(lun);
 }
 
 struct se_lun *core_tpg_pre_dellun(
