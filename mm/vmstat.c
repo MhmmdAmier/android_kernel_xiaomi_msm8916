@@ -1379,7 +1379,8 @@ static int __init setup_vmstat(void)
 	cpu_notifier_register_begin();
 	__register_cpu_notifier(&vmstat_notifier);
 
-	for_each_online_cpu(cpu)
+	get_online_cpus();
+	for_each_online_cpu(cpu) {
 		start_cpu_timer(cpu);
 	cpu_notifier_register_done();
 #endif
