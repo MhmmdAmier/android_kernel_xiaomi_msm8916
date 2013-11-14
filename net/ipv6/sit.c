@@ -1777,7 +1777,6 @@ static void __net_exit sit_exit_net(struct net *net)
 
 	rtnl_lock();
 	sit_destroy_tunnels(net, &list);
-	sit_destroy_tunnels(sitn, &list);
 	unregister_netdevice_many(&list);
 	rtnl_unlock();
 }
