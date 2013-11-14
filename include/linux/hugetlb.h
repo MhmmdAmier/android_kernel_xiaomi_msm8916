@@ -398,6 +398,15 @@ static inline spinlock_t *huge_pte_lockptr(struct hstate *h,
 	return &mm->page_table_lock;
 }
 
+static inline spinlock_t *huge_pte_lockptr(struct hstate *h,
+					   struct mm_struct *mm, pte_t *pte)
+{
+	if (huge_page_size(h) == PMD_SIZE)
+		return pmd_lockptr(mm, (pmd_t *) pte);
+	VM_BUG_ON(huge_page_size(h) == PAGE_SIZE);
+	return &mm->page_table_lock;
+}
+
 #else	/* CONFIG_HUGETLB_PAGE */
 struct hstate {};
 #define alloc_huge_page_node(h, nid) NULL

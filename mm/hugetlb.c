@@ -2417,6 +2417,7 @@ int copy_hugetlb_page_range(struct mm_struct *dst, struct mm_struct *src,
 		/* If the pagetables are shared don't copy or take references */
 		if (dst_pte == src_pte)
 			continue;
+
 		dst_ptl = huge_pte_lock(h, dst, dst_pte);
 		src_ptl = huge_pte_lockptr(h, src, src_pte);
 		spin_lock_nested(src_ptl, SINGLE_DEPTH_NESTING);
