@@ -87,6 +87,10 @@ Header notes:
 - As of v3.17, all fields are little endian unless stated otherwise.
 
 - code0/code1 are responsible for branching to stext.
+- when booting through EFI, code0/code1 are initially skipped.
+  res5 is an offset to the PE header and the PE header has the EFI
+  entry point (efi_stub_entry). When the stub has done its work, it
+  jumps to code0 to resume the normal boot process.
 
 - when booting through EFI, code0/code1 are initially skipped.
   res5 is an offset to the PE header and the PE header has the EFI
