@@ -829,7 +829,7 @@ int core_tpg_add_lun(
 	struct se_portal_group *tpg,
 	struct se_lun *lun,
 	u32 lun_access,
-	void *lun_ptr)
+	struct se_device *dev)
 {
 	int ret;
 
