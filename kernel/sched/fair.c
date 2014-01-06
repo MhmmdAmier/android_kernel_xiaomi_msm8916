@@ -8246,7 +8246,7 @@ static struct {
 	unsigned long next_balance;     /* in jiffy units */
 } nohz ____cacheline_aligned;
 
-static inline int find_new_ilb(int call_cpu, int type)
+static inline int find_new_ilb(void)
 {
 	int ilb;
 
@@ -8272,7 +8272,7 @@ static void nohz_balancer_kick(int cpu, int type)
 
 	nohz.next_balance++;
 
-	ilb_cpu = find_new_ilb(cpu, type);
+	ilb_cpu = find_new_ilb();
 
 	if (ilb_cpu >= nr_cpu_ids)
 		return;
