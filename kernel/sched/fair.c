@@ -8620,13 +8620,13 @@ static inline int _nohz_kick_needed(struct rq *rq, int cpu, int *type)
  *   - For SD_ASYM_PACKING, if the lower numbered cpu's in the scheduler
  *     domain span are idle.
  */
-static inline int nohz_kick_needed(struct rq *rq, int cpu, int *type)
+static inline int nohz_kick_needed(struct rq *rq)
 {
 	struct sched_domain *sd;
 	struct sched_group_power *sgp;
-	int nr_busy;
+	int nr_busy, cpu = rq->cpu;
 
-	if (unlikely(idle_cpu(cpu)))
+	if (unlikely(rq->idle_balance))
 		return 0;
 
        /*
@@ -8707,8 +8707,8 @@ void trigger_load_balance(struct rq *rq)
 	    likely(!on_null_domain(cpu)))
 		raise_softirq(SCHED_SOFTIRQ);
 #ifdef CONFIG_NO_HZ_COMMON
-	if (nohz_kick_needed(rq, cpu, &type) && likely(!on_null_domain(cpu)))
-		nohz_balancer_kick(cpu, type);
+	if (nohz_kick_needed(rq) && likely(!on_null_domain(cpu)))
+		nohz_balancer_kick(cpu);
 #endif
 }
 
