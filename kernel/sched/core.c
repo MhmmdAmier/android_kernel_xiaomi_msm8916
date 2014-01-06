@@ -4142,7 +4142,7 @@ void scheduler_tick(void)
 
 #ifdef CONFIG_SMP
 	rq->idle_balance = idle_cpu(cpu);
-	trigger_load_balance(rq, cpu);
+	trigger_load_balance(rq);
 #endif
 	rq_last_tick_reset(rq);
 	if (curr->sched_class == &fair_sched_class)
