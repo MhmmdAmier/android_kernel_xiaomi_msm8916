@@ -6499,12 +6499,20 @@ static inline int ixgbe_maybe_stop_tx(struct ixgbe_ring *tx_ring, u16 size)
 	return __ixgbe_maybe_stop_tx(tx_ring, size);
 }
 
-#ifdef IXGBE_FCOE
-static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb)
+static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb,
+			      void *accel_priv)
 {
+	struct ixgbe_fwd_adapter *fwd_adapter = accel_priv;
+#ifdef IXGBE_FCOE
 	struct ixgbe_adapter *adapter;
 	struct ixgbe_ring_feature *f;
 	int txq;
+#endif
+
+	if (fwd_adapter)
+		return skb->queue_mapping + fwd_adapter->tx_base_queue;
+
+#ifdef IXGBE_FCOE
 
 	/*
 	 * only execute the code below if protocol is FCoE
@@ -6530,9 +6538,11 @@ static u16 ixgbe_select_queue(struct net_device *dev, struct sk_buff *skb)
 		txq -= f->indices;
 
 	return txq + f->offset;
+#else
+	return __netdev_pick_tx(dev, skb);
+#endif
 }
 
-#endif
 netdev_tx_t ixgbe_xmit_frame_ring(struct sk_buff *skb,
 			  struct ixgbe_adapter *adapter,
 			  struct ixgbe_ring *tx_ring)
@@ -7204,13 +7214,95 @@ static int ixgbe_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
 	return ndo_dflt_bridge_getlink(skb, pid, seq, dev, mode);
 }
 
+static void *ixgbe_fwd_add(struct net_device *pdev, struct net_device *vdev)
+{
+	struct ixgbe_fwd_adapter *fwd_adapter = NULL;
+	struct ixgbe_adapter *adapter = netdev_priv(pdev);
+	unsigned int limit;
+	int pool, err;
+
+#ifdef CONFIG_RPS
+	if (vdev->num_rx_queues != vdev->num_tx_queues) {
+		netdev_info(pdev, "%s: Only supports a single queue count for TX and RX\n",
+			    vdev->name);
+		return ERR_PTR(-EINVAL);
+	}
+#endif
+	/* Check for hardware restriction on number of rx/tx queues */
+	if (vdev->num_tx_queues > IXGBE_MAX_L2A_QUEUES ||
+	    vdev->num_tx_queues == IXGBE_BAD_L2A_QUEUE) {
+		netdev_info(pdev,
+			    "%s: Supports RX/TX Queue counts 1,2, and 4\n",
+			    pdev->name);
+		return ERR_PTR(-EINVAL);
+	}
+
+	if (((adapter->flags & IXGBE_FLAG_DCB_ENABLED) &&
+	      adapter->num_rx_pools > IXGBE_MAX_DCBMACVLANS - 1) ||
+	    (adapter->num_rx_pools > IXGBE_MAX_MACVLANS))
+		return ERR_PTR(-EBUSY);
+
+	fwd_adapter = kcalloc(1, sizeof(struct ixgbe_fwd_adapter), GFP_KERNEL);
+	if (!fwd_adapter)
+		return ERR_PTR(-ENOMEM);
+
+	pool = find_first_zero_bit(&adapter->fwd_bitmask, 32);
+	adapter->num_rx_pools++;
+	set_bit(pool, &adapter->fwd_bitmask);
+	limit = find_last_bit(&adapter->fwd_bitmask, 32);
+
+	/* Enable VMDq flag so device will be set in VM mode */
+	adapter->flags |= IXGBE_FLAG_VMDQ_ENABLED | IXGBE_FLAG_SRIOV_ENABLED;
+	adapter->ring_feature[RING_F_VMDQ].limit = limit + 1;
+	adapter->ring_feature[RING_F_RSS].limit = vdev->num_tx_queues;
+
+	/* Force reinit of ring allocation with VMDQ enabled */
+	err = ixgbe_setup_tc(pdev, netdev_get_num_tc(pdev));
+	if (err)
+		goto fwd_add_err;
+	fwd_adapter->pool = pool;
+	fwd_adapter->real_adapter = adapter;
+	err = ixgbe_fwd_ring_up(vdev, fwd_adapter);
+	if (err)
+		goto fwd_add_err;
+	netif_tx_start_all_queues(vdev);
+	return fwd_adapter;
+fwd_add_err:
+	/* unwind counter and free adapter struct */
+	netdev_info(pdev,
+		    "%s: dfwd hardware acceleration failed\n", vdev->name);
+	clear_bit(pool, &adapter->fwd_bitmask);
+	adapter->num_rx_pools--;
+	kfree(fwd_adapter);
+	return ERR_PTR(err);
+}
+
+static void ixgbe_fwd_del(struct net_device *pdev, void *priv)
+{
+	struct ixgbe_fwd_adapter *fwd_adapter = priv;
+	struct ixgbe_adapter *adapter = fwd_adapter->real_adapter;
+	unsigned int limit;
+
+	clear_bit(fwd_adapter->pool, &adapter->fwd_bitmask);
+	adapter->num_rx_pools--;
+
+	limit = find_last_bit(&adapter->fwd_bitmask, 32);
+	adapter->ring_feature[RING_F_VMDQ].limit = limit + 1;
+	ixgbe_fwd_ring_down(fwd_adapter->netdev, fwd_adapter);
+	ixgbe_setup_tc(pdev, netdev_get_num_tc(pdev));
+	netdev_dbg(pdev, "pool %i:%i queues %i:%i VSI bitmask %lx\n",
+		   fwd_adapter->pool, adapter->num_rx_pools,
+		   fwd_adapter->rx_base_queue,
+		   fwd_adapter->rx_base_queue + adapter->num_rx_queues_per_pool,
+		   adapter->fwd_bitmask);
+	kfree(fwd_adapter);
+}
+
 static const struct net_device_ops ixgbe_netdev_ops = {
 	.ndo_open		= ixgbe_open,
 	.ndo_stop		= ixgbe_close,
 	.ndo_start_xmit		= ixgbe_xmit_frame,
-#ifdef IXGBE_FCOE
 	.ndo_select_queue	= ixgbe_select_queue,
-#endif
 	.ndo_set_rx_mode	= ixgbe_set_rx_mode,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_set_mac_address	= ixgbe_set_mac,
@@ -7248,6 +7340,8 @@ static const struct net_device_ops ixgbe_netdev_ops = {
 	.ndo_fdb_add		= ixgbe_ndo_fdb_add,
 	.ndo_bridge_setlink	= ixgbe_ndo_bridge_setlink,
 	.ndo_bridge_getlink	= ixgbe_ndo_bridge_getlink,
+	.ndo_dfwd_add_station	= ixgbe_fwd_add,
+	.ndo_dfwd_del_station	= ixgbe_fwd_del,
 };
 
 /**
