@@ -128,6 +128,7 @@ static int sixty = 60;
 static int neg_one = -1;
 #endif
 
+static int neg_one = -1;
 static int zero;
 static int __maybe_unused one = 1;
 static int __maybe_unused two = 2;
