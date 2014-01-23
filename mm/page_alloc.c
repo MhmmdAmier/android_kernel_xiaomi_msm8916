@@ -216,7 +216,7 @@ static char * const zone_names[MAX_NR_ZONES] = {
  * tuned according to the amount of memory in the system.
  */
 int min_free_kbytes = 1024;
-int user_min_free_kbytes;
+int user_min_free_kbytes = -1;
 
 int min_free_order_shift = 1;
 
