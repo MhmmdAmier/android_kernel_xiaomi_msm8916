@@ -527,12 +527,12 @@ static inline int page_is_buddy(struct page *page, struct page *buddy,
 		return 0;
 
 	if (page_is_guard(buddy) && page_order(buddy) == order) {
-		VM_BUG_ON(page_count(buddy) != 0);
+		VM_BUG_ON_PAGE(page_count(buddy) != 0, buddy);
 		return 1;
 	}
 
 	if (PageBuddy(buddy) && page_order(buddy) == order) {
-		VM_BUG_ON(page_count(buddy) != 0);
+		VM_BUG_ON_PAGE(page_count(buddy) != 0, buddy);
 		return 1;
 	}
 	return 0;
@@ -583,8 +583,8 @@ static inline void __free_one_page(struct page *page,
 
 	page_idx = page_to_pfn(page) & ((1 << MAX_ORDER) - 1);
 
-	VM_BUG_ON(page_idx & ((1 << order) - 1));
-	VM_BUG_ON(bad_range(zone, page));
+	VM_BUG_ON_PAGE(page_idx & ((1 << order) - 1), page);
+	VM_BUG_ON_PAGE(bad_range(zone, page), page);
 
 	while (order < MAX_ORDER-1) {
 		buddy_idx = __find_buddy_index(page_idx, order);
@@ -867,7 +867,7 @@ static inline void expand(struct zone *zone, struct page *page,
 		area--;
 		high--;
 		size >>= 1;
-		VM_BUG_ON(bad_range(zone, &page[size]));
+		VM_BUG_ON_PAGE(bad_range(zone, &page[size]), &page[size]);
 
 #ifdef CONFIG_DEBUG_PAGEALLOC
 		if (high < debug_guardpage_minorder()) {
@@ -1025,7 +1025,7 @@ int move_freepages(struct zone *zone,
 
 	for (page = start_page; page <= end_page;) {
 		/* Make sure we are not inadvertently changing nodes */
-		VM_BUG_ON(page_to_nid(page) != zone_to_nid(zone));
+		VM_BUG_ON_PAGE(page_to_nid(page) != zone_to_nid(zone), page);
 
 		if (!pfn_valid_within(page_to_pfn(page))) {
 			page++;
@@ -1489,8 +1489,8 @@ void split_page(struct page *page, unsigned int order)
 {
 	int i;
 
-	VM_BUG_ON(PageCompound(page));
-	VM_BUG_ON(!page_count(page));
+	VM_BUG_ON_PAGE(PageCompound(page), page);
+	VM_BUG_ON_PAGE(!page_count(page), page);
 
 #ifdef CONFIG_KMEMCHECK
 	/*
@@ -1641,7 +1641,7 @@ again:
 	zone_statistics(preferred_zone, zone, gfp_flags);
 	local_irq_restore(flags);
 
-	VM_BUG_ON(bad_range(zone, page));
+	VM_BUG_ON_PAGE(bad_range(zone, page), page);
 	if (prep_new_page(page, order, gfp_flags))
 		goto again;
 	return page;
@@ -6010,9 +6010,7 @@ void set_pageblock_flags_mask(struct page *page, unsigned long flags,
 	bitidx = pfn_to_bitidx(zone, pfn);
 	word_bitidx = bitidx / BITS_PER_LONG;
 	bitidx &= (BITS_PER_LONG-1);
-
-	VM_BUG_ON(!zone_spans_pfn(zone, pfn));
-
+	VM_BUG_ON_PAGE(!zone_spans_pfn(zone, pfn), page);
 	bitidx += end_bitidx;
 	mask <<= (BITS_PER_LONG - bitidx - 1);
 	flags <<= (BITS_PER_LONG - bitidx - 1);
@@ -6557,3 +6555,4 @@ void dump_page(struct page *page, char *reason)
 {
 	dump_page_badflags(page, reason, 0);
 }
+EXPORT_SYMBOL_GPL(dump_page);
