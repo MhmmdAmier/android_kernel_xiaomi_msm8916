@@ -201,14 +201,25 @@ static long do_locks(unsigned int fd, unsigned int cmd,
 	mm_segment_t fs;
 	long ret;
 
-	if (copy_from_user(&user, (struct oabi_flock64 __user *)arg,
-			   sizeof(user)))
-		return -EFAULT;
-	kernel.l_type	= user.l_type;
-	kernel.l_whence	= user.l_whence;
-	kernel.l_start	= user.l_start;
-	kernel.l_len	= user.l_len;
-	kernel.l_pid	= user.l_pid;
+	switch (cmd) {
+	case F_GETLKP:
+	case F_SETLKP:
+	case F_SETLKPW:
+	case F_GETLK64:
+	case F_SETLK64:
+	case F_SETLKW64:
+		if (copy_from_user(&user, (struct oabi_flock64 __user *)arg,
+				   sizeof(user)))
+			return -EFAULT;
+		kernel.l_type	= user.l_type;
+		kernel.l_whence	= user.l_whence;
+		kernel.l_start	= user.l_start;
+		kernel.l_len	= user.l_len;
+		kernel.l_pid	= user.l_pid;
+		local_arg = (unsigned long)&kernel;
+		fs = get_fs();
+		set_fs(KERNEL_DS);
+	}
 
 	fs = get_fs();
 	set_fs(KERNEL_DS);
