@@ -18,4 +18,5 @@ obj-$(CONFIG_RT_MUTEXES) += rtmutex.o
 obj-$(CONFIG_DEBUG_RT_MUTEXES) += rtmutex-debug.o
 obj-$(CONFIG_RT_MUTEX_TESTER) += rtmutex-tester.o
 
+obj-$(CONFIG_LOCK_TORTURE_TEST) += locktorture.o
 
