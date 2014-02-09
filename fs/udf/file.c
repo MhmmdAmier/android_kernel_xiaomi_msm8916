@@ -169,8 +169,12 @@ static ssize_t udf_file_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	} else
 		up_write(&iinfo->i_data_sem);
 
-	retval = generic_file_aio_write(iocb, iov, nr_segs, ppos);
-	if (retval > 0)
+	retval = __generic_file_aio_write(iocb, iov, nr_segs);
+	mutex_unlock(&inode->i_mutex);
+
+	if (retval > 0) {
+		ssize_t err;
+
 		mark_inode_dirty(inode);
 
 	return retval;
