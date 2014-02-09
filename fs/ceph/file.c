@@ -766,8 +766,7 @@ retry_snap:
 					  pos, &iocb->ki_pos);
 	} else {
 		written = generic_file_buffered_write(iocb, iov, nr_segs,
-						      pos, &iocb->ki_pos,
-						      count, 0);
+						      pos, count, 0);
 		mutex_unlock(&inode->i_mutex);
 	}
 	hold_mutex = false;

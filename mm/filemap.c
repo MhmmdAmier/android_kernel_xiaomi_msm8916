@@ -2557,7 +2557,7 @@ again:
 
 ssize_t
 generic_file_buffered_write(struct kiocb *iocb, const struct iovec *iov,
-		unsigned long nr_segs, loff_t pos, loff_t *ppos,
+		unsigned long nr_segs, loff_t pos,
 		size_t count, ssize_t written)
 {
 	struct file *file = iocb->ki_filp;
@@ -2569,7 +2569,7 @@ generic_file_buffered_write(struct kiocb *iocb, const struct iovec *iov,
 
 	if (likely(status >= 0)) {
 		written += status;
-		*ppos = pos + status;
+		iocb->ki_pos = pos + status;
   	}
 	
 	return written ? written : status;
@@ -2649,8 +2649,7 @@ ssize_t __generic_file_aio_write(struct kiocb *iocb, const struct iovec *iov,
 		pos += written;
 		count -= written;
 		written_buffered = generic_file_buffered_write(iocb, iov,
-						nr_segs, pos, &iocb->ki_pos, count,
-						written);
+						nr_segs, pos, count, written);
 		/*
 		 * If generic_file_buffered_write() retuned a synchronous error
 		 * then we want to return the number of bytes which were
@@ -2683,7 +2682,7 @@ ssize_t __generic_file_aio_write(struct kiocb *iocb, const struct iovec *iov,
 		}
 	} else {
 		written = generic_file_buffered_write(iocb, iov, nr_segs,
-				pos, &iocb->ki_pos, count, written);
+				pos, count, written);
 	}
 out:
 	current->backing_dev_info = NULL;
