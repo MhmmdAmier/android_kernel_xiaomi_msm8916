@@ -46,6 +46,7 @@
 #include <linux/compiler.h>
 #include <linux/percpu.h>
 
+extern int rcu_expedited; /* for sysctl */
 #ifdef CONFIG_RCU_TORTURE_TEST
 extern int rcutorture_runnable; /* for sysctl */
 #endif /* #ifdef CONFIG_RCU_TORTURE_TEST */
