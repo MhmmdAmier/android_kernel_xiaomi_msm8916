@@ -697,7 +697,6 @@ static int afs_d_revalidate(struct dentry *dentry, unsigned int flags)
 
 out_valid:
 	dentry->d_fsdata = dir_version;
-out_skip:
 	dput(parent);
 	key_put(key);
 	_leave(" = 1 [valid]");
