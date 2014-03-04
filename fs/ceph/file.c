@@ -654,14 +654,23 @@ again:
 
 	if ((got & (CEPH_CAP_FILE_CACHE|CEPH_CAP_FILE_LAZYIO)) == 0 ||
 	    (iocb->ki_filp->f_flags & O_DIRECT) ||
-	    (inode->i_sb->s_flags & MS_SYNCHRONOUS) ||
-	    (fi->flags & CEPH_F_SYNC))
+	    (fi->flags & CEPH_F_SYNC)) {
+		struct iov_iter i;
+
+		dout("aio_sync_read %p %llx.%llx %llu~%u got cap refs on %s\n",
+		     inode, ceph_vinop(inode), iocb->ki_pos, (unsigned)len,
+		     ceph_cap_string(got));
+
+		if (!read)
+			len = iov_length(iov, nr_segs);
+
+		iov_iter_init(&i, iov, nr_segs, len, read);
+
 		/* hmm, this isn't really async... */
 		ret = ceph_sync_read(filp, base, len, ppos, &checkeof);
 	else
 		ret = generic_file_aio_read(iocb, iov, nr_segs, pos);
-
-out:
+	}
 	dout("aio_read %p %llx.%llx dropping cap refs on %s = %d\n",
 	     inode, ceph_vinop(inode), ceph_cap_string(got), (int)ret);
 	ceph_put_cap_refs(ci, got);
@@ -715,9 +724,7 @@ static ssize_t ceph_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	mutex_lock(&inode->i_mutex);
 	hold_mutex = true;
 
-	err = generic_segment_checks(iov, &nr_segs, &count, VERIFY_READ);
-	if (err)
-		goto out;
+	count = iov_length(iov, nr_segs);
 
 	/* We can write back this queue in page reclaim */
 	current->backing_dev_info = file->f_mapping->backing_dev_info;
