@@ -7189,7 +7189,7 @@ static ssize_t btrfs_direct_IO(int rw, struct kiocb *iocb,
 	 * call btrfs_wait_ordered_range to make absolutely sure that any
 	 * outstanding dirty pages are on disk.
 	 */
-	count = iov_length(iter->iov, iter->nr_segs);
+	count = iov_iter_count(iter);
 	if (test_bit(BTRFS_INODE_HAS_ASYNC_EXTENT,
 		     &BTRFS_I(inode)->runtime_flags))
 		filemap_fdatawrite_range(inode->i_mapping, offset, count);
