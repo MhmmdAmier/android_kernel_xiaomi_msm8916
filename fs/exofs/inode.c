@@ -961,6 +961,13 @@ static void exofs_invalidatepage(struct page *page, unsigned int offset,
 	WARN_ON(1);
 }
 
+ /* TODO: Should be easy enough to do proprly */
+static ssize_t exofs_direct_IO(int rw, struct kiocb *iocb,
+		struct iov_iter *iter, loff_t offset)
+{
+	return 0;
+}
+
 const struct address_space_operations exofs_aops = {
 	.readpage	= exofs_readpage,
 	.readpages	= exofs_readpages,
