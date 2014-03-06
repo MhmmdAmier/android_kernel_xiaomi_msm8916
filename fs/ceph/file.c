@@ -661,15 +661,14 @@ again:
 		     inode, ceph_vinop(inode), iocb->ki_pos, (unsigned)len,
 		     ceph_cap_string(got));
 
-		if (!read)
-			len = iov_length(iov, nr_segs);
-
-		iov_iter_init(&i, iov, nr_segs, len, read);
-
 		/* hmm, this isn't really async... */
-		ret = ceph_sync_read(filp, base, len, ppos, &checkeof);
-	else
-		ret = generic_file_aio_read(iocb, iov, nr_segs, pos);
+		ret = ceph_sync_read(iocb, &i, &checkeof);
+	} else {
+		dout("aio_read %p %llx.%llx %llu~%u got cap refs on %s\n",
+		     inode, ceph_vinop(inode), pos, (unsigned)len,
+		     ceph_cap_string(got));
+
+		ret = generic_file_read_iter(iocb, &i);
 	}
 	dout("aio_read %p %llx.%llx dropping cap refs on %s = %d\n",
 	     inode, ceph_vinop(inode), ceph_cap_string(got), (int)ret);
