@@ -178,6 +178,9 @@ nfs_file_read(struct kiocb *iocb, const struct iovec *iov,
 	struct dentry * dentry = iocb->ki_filp->f_path.dentry;
 	struct inode * inode = dentry->d_inode;
 	ssize_t result;
+	struct iov_iter to;
+
+	iov_iter_init(&to, READ, iov, nr_segs, count);
 
 	if (iocb->ki_filp->f_flags & O_DIRECT)
 		return nfs_file_direct_read(iocb, iov, nr_segs, pos, true);
@@ -621,6 +624,12 @@ ssize_t nfs_file_write(struct kiocb *iocb, const struct iovec *iov,
 	unsigned long written = 0;
 	ssize_t result;
 	size_t count = iov_length(iov, nr_segs);
+	struct iov_iter from;
+	iov_iter_init(&from, WRITE, iov, nr_segs, count);
+
+	result = nfs_key_timeout_notify(file, inode);
+	if (result)
+		return result;
 
 	if (iocb->ki_filp->f_flags & O_DIRECT)
 		return nfs_file_direct_write(iocb, iov, nr_segs, pos, true);
