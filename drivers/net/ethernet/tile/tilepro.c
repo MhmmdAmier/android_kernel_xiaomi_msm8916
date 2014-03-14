@@ -2139,12 +2139,31 @@ static struct net_device_stats *tile_net_get_stats(struct net_device *dev)
 	int i;
 
 	for_each_online_cpu(i) {
-		if (priv->cpu[i]) {
-			rx_packets += priv->cpu[i]->stats.rx_packets;
-			rx_bytes += priv->cpu[i]->stats.rx_bytes;
-			tx_packets += priv->cpu[i]->stats.tx_packets;
-			tx_bytes += priv->cpu[i]->stats.tx_bytes;
-		}
+		struct tile_net_stats_t *cpu_stats;
+		u64 trx_packets, ttx_packets, trx_bytes, ttx_bytes;
+		u64 trx_errors, trx_dropped;
+		unsigned int start;
+
+		if (priv->cpu[i] == NULL)
+			continue;
+		cpu_stats = &priv->cpu[i]->stats;
+
+		do {
+			start = u64_stats_fetch_begin_irq(&cpu_stats->syncp);
+			trx_packets = cpu_stats->rx_packets;
+			ttx_packets = cpu_stats->tx_packets;
+			trx_bytes   = cpu_stats->rx_bytes;
+			ttx_bytes   = cpu_stats->tx_bytes;
+			trx_errors  = cpu_stats->rx_errors;
+			trx_dropped = cpu_stats->rx_dropped;
+		} while (u64_stats_fetch_retry_irq(&cpu_stats->syncp, start));
+
+		rx_packets += trx_packets;
+		tx_packets += ttx_packets;
+		rx_bytes   += trx_bytes;
+		tx_bytes   += ttx_bytes;
+		rx_errors  += trx_errors;
+		rx_dropped += trx_dropped;
 	}
 
 	priv->stats.rx_packets = rx_packets;
