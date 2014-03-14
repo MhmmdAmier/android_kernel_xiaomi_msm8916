@@ -544,7 +544,7 @@ static int keyring_search_iterator(const void *object, void *iterator_data)
 	/* key must have search permissions */
 	if (!(ctx->flags & KEYRING_SEARCH_NO_CHECK_PERM) &&
 	    key_task_permission(make_key_ref(key, ctx->possessed),
-				ctx->cred, KEY_SEARCH) < 0) {
+				ctx->cred, KEY_NEED_SEARCH) < 0) {
 		ctx->result = ERR_PTR(-EACCES);
 		kleave(" = %d [!perm]", ctx->skipped_ret);
 		goto skipped;
@@ -724,7 +724,7 @@ ascend_to_node:
 		/* Search a nested keyring */
 		if (!(ctx->flags & KEYRING_SEARCH_NO_CHECK_PERM) &&
 		    key_task_permission(make_key_ref(key, ctx->possessed),
-					ctx->cred, KEY_SEARCH) < 0)
+					ctx->cred, KEY_NEED_SEARCH) < 0)
 			continue;
 
 		/* stack the current position */
@@ -846,7 +846,7 @@ key_ref_t keyring_search_aux(key_ref_t keyring_ref,
 		return ERR_PTR(-ENOTDIR);
 
 	if (!(ctx->flags & KEYRING_SEARCH_NO_CHECK_PERM)) {
-		err = key_task_permission(keyring_ref, ctx->cred, KEY_SEARCH);
+		err = key_task_permission(keyring_ref, ctx->cred, KEY_NEED_SEARCH);
 		if (err < 0)
 			return ERR_PTR(err);
 	}
@@ -980,7 +980,7 @@ struct key *find_keyring_by_name(const char *name, bool uid_keyring)
 					continue;
 			} else {
 				if (key_permission(make_key_ref(keyring, 0),
-						   KEY_SEARCH) < 0)
+						   KEY_NEED_SEARCH) < 0)
 					continue;
 			}
 
