@@ -618,7 +618,7 @@ out:
 
 out_sched:
 	clear_bit(GLF_LOCK, &gl->gl_flags);
-	smp_mb__after_clear_bit();
+	smp_mb__after_atomic();
 	gl->gl_lockref.count++;
 	if (queue_delayed_work(glock_workqueue, &gl->gl_work, 0) == 0)
 		gl->gl_lockref.count--;

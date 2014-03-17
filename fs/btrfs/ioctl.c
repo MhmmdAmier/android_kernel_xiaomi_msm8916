@@ -568,6 +568,8 @@ static int create_snapshot(struct btrfs_root *root, struct inode *dir,
 	if (!root->ref_cows)
 		return -EINVAL;
 
+	smp_mb__after_atomic();
+
 	ret = btrfs_start_delalloc_inodes(root, 0);
 	if (ret)
 		return ret;
