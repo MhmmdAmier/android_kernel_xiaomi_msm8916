@@ -110,7 +110,7 @@ enum {
 	BLK_MQ_F_SHOULD_IPI	= 1 << 2,
 	BLK_MQ_F_SG_MERGE	= 1 << 3,
 
-	BLK_MQ_S_STOPPED	= 1 << 0,
+	BLK_MQ_S_STOPPED	= 0,
 
 	BLK_MQ_MAX_DEPTH	= 2048,
 };
