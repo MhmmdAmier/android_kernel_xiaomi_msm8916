@@ -187,7 +187,7 @@ static int read_priomap(struct seq_file *sf, void *v)
 }
 
 static int write_priomap(struct cgroup_subsys_state *css, struct cftype *cft,
-			 const char *buffer)
+			 char *buffer)
 {
 	struct cgroup_subsys_state *css = cgroup_css(cgrp, net_prio_subsys_id);
 	char devname[IFNAMSIZ + 1];
