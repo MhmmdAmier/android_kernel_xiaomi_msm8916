@@ -28,7 +28,6 @@ extern atomic_long_t calc_load_tasks;
 extern long calc_load_fold_active(struct rq *this_rq);
 extern void update_cpu_load_active(struct rq *this_rq);
 
-extern unsigned int sysctl_sched_ravg_window;
 /*
  * Helpers for converting nanosecond timing to jiffy resolution
  */
@@ -1067,7 +1066,6 @@ static inline void clear_reserved(int cpu) { }
 #define trace_sched_cpu_load(...)
 
 #endif /* CONFIG_SCHED_HMP */
-
 #ifdef CONFIG_CGROUP_SCHED
 
 /*
