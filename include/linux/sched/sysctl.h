@@ -72,6 +72,25 @@ extern unsigned int sysctl_sched_boost;
 
 #endif /* CONFIG_SCHED_HMP */
 
+#if defined(CONFIG_SCHED_FREQ_INPUT) || defined(CONFIG_SCHED_HMP)
+extern unsigned int sysctl_sched_init_task_load_pct;
+#endif
+
+#ifdef CONFIG_SCHED_HMP
+extern unsigned int sysctl_sched_enable_hmp_task_placement;
+extern unsigned int sysctl_sched_mostly_idle_nr_run;
+extern unsigned int sysctl_sched_mostly_idle_load_pct;
+extern unsigned int sysctl_sched_small_task_pct;
+extern unsigned int sysctl_sched_upmigrate_pct;
+extern unsigned int sysctl_sched_downmigrate_pct;
+extern int sysctl_sched_upmigrate_min_nice;
+
+#else /* CONFIG_SCHED_HMP */
+
+#define sysctl_sched_enable_hmp_task_placement 0
+
+#endif /* CONFIG_SCHED_HMP */
+
 enum sched_tunable_scaling {
 	SCHED_TUNABLESCALING_NONE,
 	SCHED_TUNABLESCALING_LOG,
