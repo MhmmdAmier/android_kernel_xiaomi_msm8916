@@ -8961,6 +8961,9 @@ void __init sched_init(void)
 #ifdef CONFIG_RT_GROUP_SCHED
 		init_tg_rt_entry(&root_task_group, &rq->rt, NULL, i, NULL);
 #endif
+#ifdef CONFIG_SCHED_HMP
+		rq->nr_small_tasks = rq->nr_big_tasks = 0;
+#endif
 
 		for (j = 0; j < CPU_LOAD_IDX_MAX; j++)
 			rq->cpu_load[j] = 0;

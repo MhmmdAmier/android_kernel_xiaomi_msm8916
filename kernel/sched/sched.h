@@ -641,6 +641,10 @@ struct rq {
 	unsigned long hmp_flags;
 #endif
 
+#ifdef CONFIG_SCHED_HMP
+	int nr_small_tasks, nr_big_tasks;
+#endif
+
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
 	u64 prev_irq_time;
 #endif
