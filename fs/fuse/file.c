@@ -985,8 +985,7 @@ out:
 	return err;
 }
 
-static ssize_t fuse_file_aio_read(struct kiocb *iocb, const struct iovec *iov,
-				  unsigned long nr_segs, loff_t pos)
+static ssize_t fuse_file_read_iter(struct kiocb *iocb, struct iov_iter *to)
 {
 	ssize_t ret_val;
 	struct inode *inode = iocb->ki_filp->f_mapping->host;
@@ -999,7 +998,7 @@ static ssize_t fuse_file_aio_read(struct kiocb *iocb, const struct iovec *iov,
 	 * i_size is up to date).
 	 */
 	if (fc->auto_inval_data ||
-	    (pos + iov_length(iov, nr_segs) > i_size_read(inode))) {
+	    (iocb->ki_pos + iov_iter_count(to) > i_size_read(inode))) {
 		int err;
 		err = fuse_update_attributes(inode, NULL, iocb->ki_filp, NULL);
 		if (err)
@@ -1007,9 +1006,9 @@ static ssize_t fuse_file_aio_read(struct kiocb *iocb, const struct iovec *iov,
 	}
 
 	if (ff && ff->shortcircuit_enabled && ff->rw_lower_file)
-		ret_val = fuse_shortcircuit_aio_read(iocb, iov, nr_segs, pos);
+		ret_val = fuse_shortcircuit_read_iter(iocb, to);
 	else
-		ret_val = generic_file_aio_read(iocb, iov, nr_segs, pos);
+		ret_val = generic_file_read_iter(iocb, to);
 
 	return ret_val;
 }
@@ -3124,8 +3123,8 @@ out:
 
 static const struct file_operations fuse_file_operations = {
 	.llseek		= fuse_file_llseek,
-	.read		= do_sync_read,
-	.aio_read	= fuse_file_aio_read,
+	.read		= new_sync_read,
+	.read_iter	= fuse_file_read_iter,
 	.write		= do_sync_write,
 	.aio_write	= fuse_file_aio_write,
 	.mmap		= fuse_file_mmap,
