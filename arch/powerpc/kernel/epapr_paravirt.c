@@ -34,7 +34,8 @@ static int __init epapr_paravirt_init(void)
 {
 	struct device_node *hyper_node;
 	const u32 *insts;
-	int len, i;
+	int len;
+	int i;
 
 	hyper_node = of_find_node_by_path("/hypervisor");
 	if (!hyper_node)
