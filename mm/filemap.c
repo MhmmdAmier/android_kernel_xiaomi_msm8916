@@ -2644,7 +2644,7 @@ out:
 	current->backing_dev_info = NULL;
 	return written ? written : err;
 }
-EXPORT_SYMBOL(__generic_file_aio_write);
+EXPORT_SYMBOL(__generic_file_write_iter);
 
 /**
  * generic_file_aio_write - write data to a file
