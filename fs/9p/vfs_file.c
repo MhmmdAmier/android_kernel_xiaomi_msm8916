@@ -711,7 +711,7 @@ err_out:
 
 buff_write:
 	mutex_unlock(&inode->i_mutex);
-	return do_sync_write(filp, data, count, offsetp);
+	return new_sync_write(filp, data, count, offsetp);
 }
 
 /**
@@ -729,7 +729,7 @@ v9fs_cached_file_write(struct file *filp, const char __user * data,
 
 	if (filp->f_flags & O_DIRECT)
 		return v9fs_direct_write(filp, data, count, offset);
-	return do_sync_write(filp, data, count, offset);
+	return new_sync_write(filp, data, count, offset);
 }
 
 static const struct vm_operations_struct v9fs_file_vm_ops = {
@@ -743,8 +743,8 @@ const struct file_operations v9fs_cached_file_operations = {
 	.llseek = generic_file_llseek,
 	.read = v9fs_cached_file_read,
 	.write = v9fs_cached_file_write,
-	.aio_read = generic_file_aio_read,
-	.aio_write = generic_file_aio_write,
+	.read_iter = generic_file_read_iter,
+	.write_iter = generic_file_write_iter,
 	.open = v9fs_file_open,
 	.release = v9fs_dir_release,
 	.lock = v9fs_file_lock,
@@ -756,8 +756,8 @@ const struct file_operations v9fs_cached_file_operations_dotl = {
 	.llseek = generic_file_llseek,
 	.read = v9fs_cached_file_read,
 	.write = v9fs_cached_file_write,
-	.aio_read = generic_file_aio_read,
-	.aio_write = generic_file_aio_write,
+	.read_iter = generic_file_read_iter,
+	.write_iter = generic_file_write_iter,
 	.open = v9fs_file_open,
 	.release = v9fs_dir_release,
 	.lock = v9fs_file_lock_dotl,
