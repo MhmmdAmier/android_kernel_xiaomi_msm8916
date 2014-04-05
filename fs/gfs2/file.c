@@ -1058,7 +1058,7 @@ const struct file_operations gfs2_file_fops = {
 	.flock		= gfs2_flock,
 	.splice_read	= generic_file_splice_read,
 	.splice_write	= iter_file_splice_write,
-	.setlease	= simple_nosetlease,
+	.setlease	= gfs2_setlease,()
 	.fallocate	= gfs2_fallocate,
 };
 
