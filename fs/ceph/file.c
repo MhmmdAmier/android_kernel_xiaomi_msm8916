@@ -566,7 +566,18 @@ more:
 			ret = PTR_ERR(pages);
 			goto out;
 		}
-		ret = ceph_copy_user_to_page_vector(pages, data, pos, len);
+
+		left = len;
+		for (n = 0; n < num_pages; n++) {
+			size_t plen = min_t(size_t, left, PAGE_SIZE);
+			ret = copy_page_from_iter(pages[n], 0, plen, &i);
+			if (ret != plen) {
+				ret = -EFAULT;
+				break;
+			}
+			left -= ret;
+		}
+
 		if (ret < 0) {
 			ceph_release_page_vector(pages, num_pages);
 			goto out;
