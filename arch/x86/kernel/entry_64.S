@@ -489,23 +489,6 @@ ENDPROC(native_usergs_sysret64)
 	TRACE_IRQS_OFF
 	.endm
 
-ENTRY(save_rest)
-	PARTIAL_FRAME 1 (REST_SKIP+8)
-	movq 5*8+16(%rsp), %r11	/* save return address */
-	movq_cfi rbx, RBX+16
-	movq_cfi rbp, RBP+16
-	movq_cfi r12, R12+16
-	movq_cfi r13, R13+16
-	movq_cfi r14, R14+16
-	movq_cfi r15, R15+16
-	movq %r11, 8(%rsp)	/* return address */
-	FIXUP_TOP_OF_STACK %r11, 16
-	ret
-	CFI_ENDPROC
-END(save_rest)
-
-/* save complete stack frame */
-	.pushsection .kprobes.text, "ax"
 ENTRY(save_paranoid)
 	XCPT_FRAME 1 RDI+8
 	cld
@@ -534,7 +517,6 @@ ENTRY(save_paranoid)
 1:	ret
 	CFI_ENDPROC
 END(save_paranoid)
-	.popsection
 
 /*
  * A newly forked process directly context switches into this address.
@@ -995,10 +977,6 @@ END(interrupt)
 	call \func
 	.endm
 
-/*
- * Interrupt entry/exit should be protected against kprobes
- */
-	.pushsection .kprobes.text, "ax"
 	/*
 	 * The interrupt stubs push (~vector+0x80) onto the stack and
 	 * then jump to common_interrupt.
@@ -1154,11 +1132,6 @@ ENTRY(retint_kernel)
 #endif
 	CFI_ENDPROC
 END(common_interrupt)
-
-/*
- * End of kprobes section
- */
-       .popsection
 
 /*
  * APIC interrupts.
@@ -1485,11 +1458,6 @@ apicinterrupt HYPERVISOR_CALLBACK_VECTOR \
 apicinterrupt HYPERVISOR_CALLBACK_VECTOR \
 	hyperv_callback_vector hyperv_vector_handler
 #endif /* CONFIG_HYPERV */
-
-/*
- * Some functions should be protected against kprobes
- */
-	.pushsection .kprobes.text, "ax"
 
 paranoidzeroentry_ist debug do_debug DEBUG_STACK
 paranoidzeroentry_ist int3 do_int3 DEBUG_STACK
@@ -1914,7 +1882,3 @@ ENTRY(ignore_sysret)
 	CFI_ENDPROC
 END(ignore_sysret)
 
-/*
- * End of kprobes section
- */
-	.popsection
