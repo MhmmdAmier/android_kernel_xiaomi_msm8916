@@ -66,10 +66,6 @@ MODULE_PARM_DESC(disable, "disable acpiphp driver");
 module_param_named(debug, acpiphp_debug, bool, 0644);
 module_param_named(disable, acpiphp_disabled, bool, 0444);
 
-/* export the attention callback registration methods */
-EXPORT_SYMBOL_GPL(acpiphp_register_attention);
-EXPORT_SYMBOL_GPL(acpiphp_unregister_attention);
-
 static int enable_slot		(struct hotplug_slot *slot);
 static int disable_slot		(struct hotplug_slot *slot);
 static int set_attention_status (struct hotplug_slot *slot, u8 value);
@@ -107,6 +103,7 @@ int acpiphp_register_attention(struct acpiphp_attention_info *info)
 	}
 	return retval;
 }
+EXPORT_SYMBOL_GPL(acpiphp_register_attention);
 
 
 /**
@@ -127,6 +124,7 @@ int acpiphp_unregister_attention(struct acpiphp_attention_info *info)
 	}
 	return retval;
 }
+EXPORT_SYMBOL_GPL(acpiphp_unregister_attention);
 
 
 /**

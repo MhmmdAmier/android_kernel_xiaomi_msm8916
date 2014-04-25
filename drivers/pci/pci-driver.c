@@ -77,6 +77,7 @@ int pci_add_dynid(struct pci_driver *drv,
 
 	return retval;
 }
+EXPORT_SYMBOL_GPL(pci_add_dynid);
 
 static void pci_free_dynids(struct pci_driver *drv)
 {
@@ -212,6 +213,7 @@ const struct pci_device_id *pci_match_id(const struct pci_device_id *ids,
 	}
 	return NULL;
 }
+EXPORT_SYMBOL(pci_match_id);
 
 /**
  * pci_match_device - Tell if a PCI device structure has a matching PCI device id structure
@@ -1185,6 +1187,7 @@ int __pci_register_driver(struct pci_driver *drv, struct module *owner,
 	/* register with core */
 	return driver_register(&drv->driver);
 }
+EXPORT_SYMBOL(__pci_register_driver);
 
 /**
  * pci_unregister_driver - unregister a pci driver
@@ -1202,6 +1205,7 @@ pci_unregister_driver(struct pci_driver *drv)
 	driver_unregister(&drv->driver);
 	pci_free_dynids(drv);
 }
+EXPORT_SYMBOL(pci_unregister_driver);
 
 static struct pci_driver pci_compat_driver = {
 	.name = "compat"
@@ -1227,6 +1231,7 @@ pci_dev_driver(const struct pci_dev *dev)
 	}
 	return NULL;
 }
+EXPORT_SYMBOL(pci_dev_driver);
 
 /**
  * pci_bus_match - Tell if a PCI device structure has a matching PCI device id structure
@@ -1272,6 +1277,7 @@ struct pci_dev *pci_dev_get(struct pci_dev *dev)
 		get_device(&dev->dev);
 	return dev;
 }
+EXPORT_SYMBOL(pci_dev_get);
 
 /**
  * pci_dev_put - release a use of the pci device structure
@@ -1285,6 +1291,7 @@ void pci_dev_put(struct pci_dev *dev)
 	if (dev)
 		put_device(&dev->dev);
 }
+EXPORT_SYMBOL(pci_dev_put);
 
 static int pci_uevent(struct device *dev, struct kobj_uevent_env *env)
 {
@@ -1331,19 +1338,10 @@ struct bus_type pci_bus_type = {
 	.drv_attrs	= pci_drv_attrs,
 	.pm		= PCI_PM_OPS_PTR,
 };
+EXPORT_SYMBOL(pci_bus_type);
 
 static int __init pci_driver_init(void)
 {
 	return bus_register(&pci_bus_type);
 }
-
 postcore_initcall(pci_driver_init);
-
-EXPORT_SYMBOL_GPL(pci_add_dynid);
-EXPORT_SYMBOL(pci_match_id);
-EXPORT_SYMBOL(__pci_register_driver);
-EXPORT_SYMBOL(pci_unregister_driver);
-EXPORT_SYMBOL(pci_dev_driver);
-EXPORT_SYMBOL(pci_bus_type);
-EXPORT_SYMBOL(pci_dev_get);
-EXPORT_SYMBOL(pci_dev_put);
