@@ -157,12 +157,11 @@ static void __init s3c64xx_cpufreq_config_regulator(void)
 		pr_err("Unable to check supported voltages\n");
 	}
 
-	freq = s3c64xx_freq_table;
-	while (count > 0 && freq->frequency != CPUFREQ_TABLE_END) {
-		if (freq->frequency == CPUFREQ_ENTRY_INVALID)
-			continue;
+	if (!count)
+		goto out;
 
-		dvfs = &s3c64xx_dvfs_table[freq->index];
+	cpufreq_for_each_valid_entry(freq, s3c64xx_freq_table) {
+		dvfs = &s3c64xx_dvfs_table[freq->driver_data];
 		found = 0;
 
 		for (i = 0; i < count; i++) {
@@ -176,10 +175,9 @@ static void __init s3c64xx_cpufreq_config_regulator(void)
 				 freq->frequency);
 			freq->frequency = CPUFREQ_ENTRY_INVALID;
 		}
-
-		freq++;
 	}
 
+out:
 	/* Guess based on having to do an I2C/SPI write; in future we
 	 * will be able to query the regulator performance here. */
 	regulator_latency = 1 * 1000 * 1000;
@@ -218,8 +216,7 @@ static int s3c64xx_cpufreq_driver_init(struct cpufreq_policy *policy)
 	}
 #endif
 
-	freq = s3c64xx_freq_table;
-	while (freq->frequency != CPUFREQ_TABLE_END) {
+	cpufreq_for_each_entry(freq, s3c64xx_freq_table) {
 		unsigned long r;
 
 		/* Check for frequencies we can generate */
@@ -235,8 +232,6 @@ static int s3c64xx_cpufreq_driver_init(struct cpufreq_policy *policy)
 		 * frequency is the maximum we can support. */
 		if (!vddarm && freq->frequency > s3c64xx_cpufreq_get_speed(0))
 			freq->frequency = CPUFREQ_ENTRY_INVALID;
-
-		freq++;
 	}
 
 	policy->cur = clk_get_rate(armclk) / 1000;
