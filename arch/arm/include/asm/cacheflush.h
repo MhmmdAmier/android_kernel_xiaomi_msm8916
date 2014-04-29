@@ -476,4 +476,7 @@ static inline void set_kernel_text_ro(void) { }
 #define mark_addr_rdwrite(a)
 #endif
 
+
+void flush_uprobe_xol_access(struct page *page, unsigned long uaddr,
+			     void *kaddr, unsigned long len);
 #endif
