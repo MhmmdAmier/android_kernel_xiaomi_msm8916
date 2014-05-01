@@ -222,6 +222,7 @@ struct dentry_operations {
 #define DCACHE_AUTODIR_TYPE		0x00200000 /* Lookupless directory (presumed automount) */
 #define DCACHE_SYMLINK_TYPE		0x00300000 /* Symlink */
 #define DCACHE_FILE_TYPE		0x00400000 /* Other file type */
+#define DCACHE_MAY_FREE			0x00800000
 
 #define DCACHE_ENCRYPTED_WITH_KEY	0x04000000 /* dir is encrypted with a valid key */
 
