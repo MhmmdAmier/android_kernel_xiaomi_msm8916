@@ -76,6 +76,8 @@ extern unsigned int sysctl_sched_boost;
 extern unsigned int sysctl_sched_init_task_load_pct;
 #endif
 
+extern unsigned int sysctl_sched_task_migrate_notify_pct;
+
 #ifdef CONFIG_SCHED_HMP
 extern unsigned int sysctl_sched_enable_hmp_task_placement;
 extern unsigned int sysctl_sched_mostly_idle_nr_run;
