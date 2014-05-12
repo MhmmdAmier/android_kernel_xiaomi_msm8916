@@ -212,11 +212,19 @@ static inline void snmp_mib_free(void __percpu *ptr[SNMP_ARRAY_SZ])
 
 void inet_get_local_port_range(struct net *net, int *low, int *high);
 
-extern unsigned long *sysctl_local_reserved_ports;
-static inline int inet_is_reserved_local_port(int port)
+#if CONFIG_SYSCTL
+static inline int inet_is_local_reserved_port(struct net *net, int port)
 {
-	return test_bit(port, sysctl_local_reserved_ports);
+	if (!net->ipv4.sysctl_local_reserved_ports)
+		return 0;
+	return test_bit(port, net->ipv4.sysctl_local_reserved_ports);
 }
+#else
+static inline int inet_is_local_reserved_port(struct net *net, int port)
+{
+	return 0;
+}
+#endif
 
 extern int sysctl_ip_nonlocal_bind;
 
