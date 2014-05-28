@@ -90,6 +90,7 @@ extern unsigned int sysctl_sched_downmigrate_pct;
 extern int sysctl_sched_upmigrate_min_nice;
 extern unsigned int sysctl_sched_enable_power_aware;
 extern unsigned int sysctl_sched_powerband_limit_pct;
+extern unsigned int sysctl_sched_boost;
 
 #else /* CONFIG_SCHED_HMP */
 
