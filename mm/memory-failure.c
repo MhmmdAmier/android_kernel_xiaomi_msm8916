@@ -1135,11 +1135,6 @@ int memory_failure(unsigned long pfn, int trapno, int flags)
 		}
 	}
 
-	/*
-	 * Lock the page and wait for writeback to finish.
-	 * It's very difficult to mess with pages currently under IO
-	 * and in many cases impossible, so we just avoid it here.
-	 */
 	lock_page(hpage);
 
 	/*
@@ -1189,6 +1184,10 @@ int memory_failure(unsigned long pfn, int trapno, int flags)
 	if (PageHuge(p))
 		set_page_hwpoison_huge_page(hpage);
 
+	/*
+	 * It's very difficult to mess with pages currently under IO
+	 * and in many cases impossible, so we just avoid it here.
+	 */
 	wait_on_page_writeback(p);
 
 	/*
