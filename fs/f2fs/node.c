@@ -1209,7 +1209,6 @@ repeat:
 		goto out_err;
 	}
 page_hit:
-	mark_page_accessed(page);
 
 	if(unlikely(nid != nid_of_node(page))) {
 		f2fs_msg(sbi->sb, KERN_WARNING, "inconsistent node block, "
