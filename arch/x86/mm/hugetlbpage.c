@@ -221,11 +221,6 @@ follow_huge_pmd(struct mm_struct *mm, unsigned long address,
 {
 	return NULL;
 }
-
-int pmd_huge_support(void)
-{
-	return 0;
-}
 #else
 
 struct page *
@@ -243,7 +238,6 @@ int pud_huge(pud_t pud)
 {
 	return !!(pud_val(pud) & _PAGE_PSE);
 }
-
 struct page *
 follow_huge_pmd(struct mm_struct *mm, unsigned long address,
 		pmd_t *pmd, int write)
