@@ -3507,6 +3507,7 @@ out:
 static void try_to_wake_up_local(struct task_struct *p)
 {
 	struct rq *rq = task_rq(p);
+	int long_sleep = 0;
 
 	if (rq != this_rq() || p == current) {
 		printk_deferred("%s: Failed to wakeup task %d (%s), rq = %p,"
@@ -4634,6 +4635,7 @@ need_resched:
 	if (task_on_rq_queued(prev) || rq->skip_clock_update < 0)
 		update_rq_clock(rq);
 
+	wallclock = sched_clock();
 	next = pick_next_task(rq, prev);
 	wallclock = sched_clock();
 	update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
