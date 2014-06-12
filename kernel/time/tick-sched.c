@@ -1006,6 +1006,10 @@ static void tick_nohz_handler(struct clock_event_device *dev)
 	if (unlikely(ts->tick_stopped))
 		return;
 
+	/* No need to reprogram if we are running tickless  */
+	if (unlikely(ts->tick_stopped))
+		return;
+
 	while (tick_nohz_reprogram(ts, now)) {
 		now = ktime_get();
 		tick_do_update_jiffies64(now);
