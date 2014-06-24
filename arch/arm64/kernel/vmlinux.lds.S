@@ -8,6 +8,9 @@
 #include <asm/thread_info.h>
 #include <asm/memory.h>
 #include <asm/page.h>
+
+#include "image.h"
+
 #ifdef CONFIG_STRICT_MEMORY_RWX
 #include <asm/pgtable.h>
 #endif
@@ -137,6 +140,8 @@ SECTIONS
 	_end = .;
 
 	STABS_DEBUG
+
+	HEAD_SYMBOLS
 }
 
 /*
