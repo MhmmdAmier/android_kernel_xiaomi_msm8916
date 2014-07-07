@@ -3618,7 +3618,13 @@ void cifs_oplock_break(struct work_struct *work)
 	struct cifs_tcon *tcon = tlink_tcon(cfile->tlink);
 	int rc = 0;
 
-	if (!cinode->clientCanCacheAll && cinode->clientCanCacheRead &&
+	wait_on_bit(&cinode->flags, CIFS_INODE_PENDING_WRITERS,
+			TASK_UNINTERRUPTIBLE);
+
+	server->ops->downgrade_oplock(server, cinode,
+		test_bit(CIFS_INODE_DOWNGRADE_OPLOCK_TO_L2, &cinode->flags));
+
+	if (!CIFS_CACHE_WRITE(cinode) && CIFS_CACHE_READ(cinode) &&
 						cifs_has_mand_locks(cinode)) {
 		cifs_dbg(FYI, "Reset oplock to None for inode=%p due to mand locks\n",
 			 inode);

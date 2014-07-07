@@ -1894,12 +1894,12 @@ pnfs_layoutcommit_inode(struct inode *inode, bool sync)
 		goto out_free;
 
 	if (test_and_set_bit(NFS_INO_LAYOUTCOMMITTING, &nfsi->flags)) {
-		if (!sync) {
-			status = -EAGAIN;
-			goto out_free;
-		}
-		status = wait_on_bit_lock(&nfsi->flags, NFS_INO_LAYOUTCOMMITTING,
-					nfs_wait_bit_killable, TASK_KILLABLE);
+		if (!sync)
+			goto out;
+		status = wait_on_bit_lock_action(&nfsi->flags,
+				NFS_INO_LAYOUTCOMMITTING,
+				nfs_wait_bit_killable,
+				TASK_KILLABLE);
 		if (status)
 			goto out_free;
 	}

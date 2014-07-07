@@ -198,21 +198,10 @@ static void __exit fscache_exit(void)
 module_exit(fscache_exit);
 
 /*
- * wait_on_bit() sleep function for uninterruptible waiting
+ * wait_on_atomic_t() sleep function for uninterruptible waiting
  */
-int fscache_wait_bit(void *flags)
+int fscache_wait_atomic_t(atomic_t *p)
 {
 	schedule();
 	return 0;
 }
-EXPORT_SYMBOL(fscache_wait_bit);
-
-/*
- * wait_on_bit() sleep function for interruptible waiting
- */
-int fscache_wait_bit_interruptible(void *flags)
-{
-	schedule();
-	return signal_pending(current);
-}
-EXPORT_SYMBOL(fscache_wait_bit_interruptible);

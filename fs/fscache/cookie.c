@@ -139,6 +139,39 @@ struct fscache_cookie *__fscache_acquire_cookie(
 EXPORT_SYMBOL(__fscache_acquire_cookie);
 
 /*
+ * Enable a cookie to permit it to accept new operations.
+ */
+void __fscache_enable_cookie(struct fscache_cookie *cookie,
+			     bool (*can_enable)(void *data),
+			     void *data)
+{
+	_enter("%p", cookie);
+
+	wait_on_bit_lock(&cookie->flags, FSCACHE_COOKIE_ENABLEMENT_LOCK,
+			 TASK_UNINTERRUPTIBLE);
+
+	if (test_bit(FSCACHE_COOKIE_ENABLED, &cookie->flags))
+		goto out_unlock;
+
+	if (can_enable && !can_enable(data)) {
+		/* The netfs decided it didn't want to enable after all */
+	} else if (cookie->def->type != FSCACHE_COOKIE_TYPE_INDEX) {
+		/* Wait for outstanding disablement to complete */
+		__fscache_wait_on_invalidate(cookie);
+
+		if (fscache_acquire_non_index_cookie(cookie) == 0)
+			set_bit(FSCACHE_COOKIE_ENABLED, &cookie->flags);
+	} else {
+		set_bit(FSCACHE_COOKIE_ENABLED, &cookie->flags);
+	}
+
+out_unlock:
+	clear_bit_unlock(FSCACHE_COOKIE_ENABLEMENT_LOCK, &cookie->flags);
+	wake_up_bit(&cookie->flags, FSCACHE_COOKIE_ENABLEMENT_LOCK);
+}
+EXPORT_SYMBOL(__fscache_enable_cookie);
+
+/*
  * acquire a non-index cookie
  * - this must make sure the index chain is instantiated and instantiate the
  *   object representation too
@@ -213,7 +246,7 @@ static int fscache_acquire_non_index_cookie(struct fscache_cookie *cookie)
 	if (!fscache_defer_lookup) {
 		_debug("non-deferred lookup %p", &cookie->flags);
 		wait_on_bit(&cookie->flags, FSCACHE_COOKIE_LOOKING_UP,
-			    fscache_wait_bit, TASK_UNINTERRUPTIBLE);
+			    TASK_UNINTERRUPTIBLE);
 		_debug("complete");
 		if (test_bit(FSCACHE_COOKIE_UNAVAILABLE, &cookie->flags))
 			goto unavailable;
@@ -420,7 +453,6 @@ void __fscache_wait_on_invalidate(struct fscache_cookie *cookie)
 	_enter("%p", cookie);
 
 	wait_on_bit(&cookie->flags, FSCACHE_COOKIE_INVALIDATING,
-		    fscache_wait_bit_interruptible,
 		    TASK_UNINTERRUPTIBLE);
 
 	_leave("");
@@ -490,12 +522,15 @@ void __fscache_relinquish_cookie(struct fscache_cookie *cookie, int retire)
 		BUG();
 	}
 
-	/* wait for the cookie to finish being instantiated (or to fail) */
-	if (test_bit(FSCACHE_COOKIE_CREATING, &cookie->flags)) {
-		fscache_stat(&fscache_n_relinquishes_waitcrt);
-		wait_on_bit(&cookie->flags, FSCACHE_COOKIE_CREATING,
-			    fscache_wait_bit, TASK_UNINTERRUPTIBLE);
-	}
+	wait_on_bit_lock(&cookie->flags, FSCACHE_COOKIE_ENABLEMENT_LOCK,
+			 TASK_UNINTERRUPTIBLE);
+	if (!test_and_clear_bit(FSCACHE_COOKIE_ENABLED, &cookie->flags))
+		goto out_unlock_enable;
+
+	/* If the cookie is being invalidated, wait for that to complete first
+	 * so that we can reuse the flag.
+	 */
+	__fscache_wait_on_invalidate(cookie);
 
 	event = retire ? FSCACHE_OBJECT_EV_RETIRE : FSCACHE_OBJECT_EV_RELEASE;
 

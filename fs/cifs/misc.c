@@ -555,9 +555,56 @@ void cifs_set_oplock_level(struct cifsInodeInfo *cinode, __u32 oplock)
 		cinode->clientCanCacheRead = true;
 		cifs_dbg(FYI, "Level II Oplock granted on inode %p\n",
 			 &cinode->vfs_inode);
-	} else {
-		cinode->clientCanCacheAll = false;
-		cinode->clientCanCacheRead = false;
+	} else
+		cinode->oplock = 0;
+}
+
+static int
+cifs_oplock_break_wait(void *unused)
+{
+	schedule();
+	return signal_pending(current) ? -ERESTARTSYS : 0;
+}
+
+/*
+ * We wait for oplock breaks to be processed before we attempt to perform
+ * writes.
+ */
+int cifs_get_writer(struct cifsInodeInfo *cinode)
+{
+	int rc;
+
+start:
+	rc = wait_on_bit(&cinode->flags, CIFS_INODE_PENDING_OPLOCK_BREAK,
+			 TASK_KILLABLE);
+	if (rc)
+		return rc;
+
+	spin_lock(&cinode->writers_lock);
+	if (!cinode->writers)
+		set_bit(CIFS_INODE_PENDING_WRITERS, &cinode->flags);
+	cinode->writers++;
+	/* Check to see if we have started servicing an oplock break */
+	if (test_bit(CIFS_INODE_PENDING_OPLOCK_BREAK, &cinode->flags)) {
+		cinode->writers--;
+		if (cinode->writers == 0) {
+			clear_bit(CIFS_INODE_PENDING_WRITERS, &cinode->flags);
+			wake_up_bit(&cinode->flags, CIFS_INODE_PENDING_WRITERS);
+		}
+		spin_unlock(&cinode->writers_lock);
+		goto start;
+	}
+	spin_unlock(&cinode->writers_lock);
+	return 0;
+}
+
+void cifs_put_writer(struct cifsInodeInfo *cinode)
+{
+	spin_lock(&cinode->writers_lock);
+	cinode->writers--;
+	if (cinode->writers == 0) {
+		clear_bit(CIFS_INODE_PENDING_WRITERS, &cinode->flags);
+		wake_up_bit(&cinode->flags, CIFS_INODE_PENDING_WRITERS);
 	}
 }
 
