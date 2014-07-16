@@ -225,26 +225,28 @@ struct clocksource * __init clocksource_default_clock(void)
 void update_vsyscall_old(struct timespec *wall_time, struct timespec *wtm,
 			struct clocksource *clock, u32 mult)
 {
-	if (clock != &clocksource_tod)
+	u64 nsecps;
+
+	if (tk->tkr.clock != &clocksource_tod)
 		return;
 
 	/* Make userspace gettimeofday spin until we're done. */
 	++vdso_data->tb_update_count;
 	smp_wmb();
-	vdso_data->xtime_tod_stamp = tk->cycle_last;
+	vdso_data->xtime_tod_stamp = tk->tkr.cycle_last;
 	vdso_data->xtime_clock_sec = tk->xtime_sec;
-	vdso_data->xtime_clock_nsec = tk->xtime_nsec;
+	vdso_data->xtime_clock_nsec = tk->tkr.xtime_nsec;
 	vdso_data->wtom_clock_sec =
 		tk->xtime_sec + tk->wall_to_monotonic.tv_sec;
-	vdso_data->wtom_clock_nsec = tk->xtime_nsec +
-		+ ((u64) tk->wall_to_monotonic.tv_nsec << tk->shift);
-	nsecps = (u64) NSEC_PER_SEC << tk->shift;
+	vdso_data->wtom_clock_nsec = tk->tkr.xtime_nsec +
+		+ ((u64) tk->wall_to_monotonic.tv_nsec << tk->tkr.shift);
+	nsecps = (u64) NSEC_PER_SEC << tk->tkr.shift;
 	while (vdso_data->wtom_clock_nsec >= nsecps) {
 		vdso_data->wtom_clock_nsec -= nsecps;
 		vdso_data->wtom_clock_sec++;
 	}
-	vdso_data->tk_mult = tk->mult;
-	vdso_data->tk_shift = tk->shift;
+	vdso_data->tk_mult = tk->tkr.mult;
+	vdso_data->tk_shift = tk->tkr.shift;
 	smp_wmb();
 	++vdso_data->tb_update_count;
 }
