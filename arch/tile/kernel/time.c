@@ -235,5 +235,46 @@ cycles_t ns2cycles(unsigned long nsecs)
 	 * clock frequency.
 	 */
 	struct clock_event_device *dev = &__raw_get_cpu_var(tile_timer);
-	return ((u64)nsecs * dev->mult) >> dev->shift;
+
+	/*
+	 * as in clocksource.h and x86's timer.h, we split the calculation
+	 * into 2 parts to avoid unecessary overflow of the intermediate
+	 * value. This will not lead to any loss of precision.
+	 */
+	u64 quot = (u64)nsecs >> dev->shift;
+	u64 rem  = (u64)nsecs & ((1ULL << dev->shift) - 1);
+	return quot * dev->mult + ((rem * dev->mult) >> dev->shift);
+}
+
+void update_vsyscall_tz(void)
+{
+	/* Userspace gettimeofday will spin while this value is odd. */
+	++vdso_data->tz_update_count;
+	smp_wmb();
+	vdso_data->tz_minuteswest = sys_tz.tz_minuteswest;
+	vdso_data->tz_dsttime = sys_tz.tz_dsttime;
+	smp_wmb();
+	++vdso_data->tz_update_count;
+}
+
+void update_vsyscall(struct timekeeper *tk)
+{
+	struct timespec *wtm = &tk->wall_to_monotonic;
+	struct clocksource *clock = tk->clock;
+
+	if (clock != &cycle_counter_cs)
+		return;
+
+	/* Userspace gettimeofday will spin while this value is odd. */
+	++vdso_data->tb_update_count;
+	smp_wmb();
+	vdso_data->xtime_tod_stamp = tk->cycle_last;
+	vdso_data->xtime_clock_sec = tk->xtime_sec;
+	vdso_data->xtime_clock_nsec = tk->xtime_nsec;
+	vdso_data->wtom_clock_sec = wtm->tv_sec;
+	vdso_data->wtom_clock_nsec = wtm->tv_nsec;
+	vdso_data->mult = tk->mult;
+	vdso_data->shift = tk->shift;
+	smp_wmb();
+	++vdso_data->tb_update_count;
 }
