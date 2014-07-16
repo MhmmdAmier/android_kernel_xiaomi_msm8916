@@ -106,8 +106,6 @@ static inline bool timespec_valid_strict(const struct timespec *ts)
 	return true;
 }
 
-void get_xtime_and_monotonic_and_sleep_offset(struct timespec *xtim,
-				struct timespec *wtom, struct timespec *sleep);
 extern struct timespec timespec_trunc(struct timespec t, unsigned gran);
 
 #define CURRENT_TIME		(current_kernel_time())

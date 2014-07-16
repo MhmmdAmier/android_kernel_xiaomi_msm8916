@@ -315,6 +315,12 @@ static inline void timerfd_clock_was_set(void) { }
 #endif
 extern void hrtimers_resume(void);
 
+extern ktime_t ktime_get_update_offsets_tick(ktime_t *offs_real,
+						ktime_t *offs_boot,
+						ktime_t *offs_tai);
+extern ktime_t ktime_get_update_offsets_now(ktime_t *offs_real,
+						ktime_t *offs_boot,
+						ktime_t *offs_tai);
 DECLARE_PER_CPU(struct tick_device, tick_cpu_device);
 
 
