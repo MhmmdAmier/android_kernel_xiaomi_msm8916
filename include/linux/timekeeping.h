@@ -27,7 +27,6 @@ struct timespec __current_kernel_time(void);
  */
 struct timespec get_monotonic_coarse(void);
 extern void getrawmonotonic(struct timespec *ts);
-extern void get_monotonic_boottime(struct timespec *ts);
 extern void ktime_get_ts64(struct timespec64 *ts);
 
 extern int __getnstimeofday64(struct timespec64 *tv);
@@ -142,6 +141,14 @@ static inline ktime_t ktime_get_clocktai(void)
 static inline ktime_t ktime_mono_to_real(ktime_t mono)
 {
 	return ktime_mono_to_any(mono, TK_OFFS_REAL);
+}
+
+/*
+ * Timespec interfaces utilizing the ktime based ones
+ */
+static inline void get_monotonic_boottime(struct timespec *ts)
+{
+	*ts = ktime_to_timespec(ktime_get_boottime());
 }
 
 /*
