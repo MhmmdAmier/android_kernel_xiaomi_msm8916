@@ -1376,6 +1376,15 @@ static __read_mostly unsigned int sched_io_is_busy;
 
 #endif	/* CONFIG_SCHED_FREQ_INPUT */
 
+/*
+ * copy of sysctl_sched_window_stats_policy. Required for atomically
+ * changing policy (see sched_window_stats_policy_update_handler() for details).
+ *
+ * Initialize both to same value!!
+ */
+static __read_mostly unsigned int sched_window_stats_policy =
+	 WINDOW_STATS_USE_AVG;
+
 /* 1 -> use PELT based load stats, 0 -> use window-based load stats */
 unsigned int __read_mostly sched_use_pelt;
 
@@ -2405,7 +2414,7 @@ int sched_set_window(u64 window_start, unsigned int window_size)
 
 	BUG_ON(sched_clock() < ws);
 
-	reset_all_window_stats(ws, window_size);
+	reset_all_window_stats(ws, window_size, -1);
 
 	mutex_unlock(&policy_mutex);
 
