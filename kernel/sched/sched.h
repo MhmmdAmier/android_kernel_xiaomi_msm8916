@@ -643,6 +643,7 @@ struct rq {
 
 #ifdef CONFIG_SCHED_HMP
 	int nr_small_tasks, nr_big_tasks;
+	unsigned long hmp_flags;
 #endif
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING

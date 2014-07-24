@@ -3230,7 +3230,7 @@ void sched_ttwu_pending(void)
 void scheduler_ipi(void)
 {
 	int cpu = smp_processor_id();
-	
+
 	/*
 	 * Fold TIF_NEED_RESCHED into the preempt_count; anybody setting
 	 * TIF_NEED_RESCHED remotely (for the first time) will also send
@@ -3238,7 +3238,8 @@ void scheduler_ipi(void)
 	 */
 	preempt_fold_need_resched();
 
-	if (llist_empty(&this_rq()->wake_list) && !got_nohz_idle_kick())
+	if (llist_empty(&this_rq()->wake_list) && !got_nohz_idle_kick() &&
+							!got_boost_kick())
 		return;
 
 	if (got_boost_kick()) {
@@ -3248,7 +3249,6 @@ void scheduler_ipi(void)
 			check_for_migration(rq, rq->curr);
 		clear_boost_kick(cpu);
 	}
-
 
 	/*
 	 * Not all reschedule IPI handlers call irq_enter/irq_exit, since
