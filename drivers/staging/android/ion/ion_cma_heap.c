@@ -1,5 +1,5 @@
 /*
- * drivers/gpu/ion/ion_cma_heap.c
+ * drivers/staging/android/ion/ion_cma_heap.c
  *
  * Copyright (C) Linaro 2012
  * Author: <benjamin.gaignard@linaro.org> for ST-Ericsson.
@@ -67,10 +67,8 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	dev_dbg(dev, "Request buffer allocation len %ld\n", len);
 
 	info = kzalloc(sizeof(struct ion_cma_buffer_info), GFP_KERNEL);
-	if (!info) {
-		dev_err(dev, "Can't allocate buffer info\n");
+	if (!info)
 		return ION_CMA_ALLOCATE_FAILED;
-	}
 
 	if (!ION_IS_CACHED(flags))
 		info->cpu_addr = dma_alloc_writecombine(dev, len,
@@ -85,10 +83,8 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 	}
 
 	info->table = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
-	if (!info->table) {
-		dev_err(dev, "Fail to allocate sg table\n");
+	if (!info->table)
 		goto err;
-	}
 
 	info->is_cached = ION_IS_CACHED(flags);
 
@@ -97,7 +93,7 @@ static int ion_cma_allocate(struct ion_heap *heap, struct ion_buffer *buffer,
 
 	/* keep this for memory release */
 	buffer->priv_virt = info;
-	dev_dbg(dev, "Allocate buffer %pK\n", buffer);
+	dev_dbg(dev, "Allocate buffer %p\n", buffer);
 	return 0;
 
 err:
@@ -110,7 +106,7 @@ static void ion_cma_free(struct ion_buffer *buffer)
 	struct device *dev = buffer->heap->priv;
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
 
-	dev_dbg(dev, "Release buffer %pK\n", buffer);
+	dev_dbg(dev, "Release buffer %p\n", buffer);
 	/* release memory */
 	dma_free_coherent(dev, buffer->size, info->cpu_addr, info->handle);
 	sg_free_table(info->table);
@@ -126,7 +122,7 @@ static int ion_cma_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 	struct device *dev = heap->priv;
 	struct ion_cma_buffer_info *info = buffer->priv_virt;
 
-	dev_dbg(dev, "Return buffer %pK physical address 0x%pa\n", buffer,
+	dev_dbg(dev, "Return buffer %p physical address %pa\n", buffer,
 		&info->handle);
 
 	*addr = info->handle;
@@ -146,7 +142,6 @@ static struct sg_table *ion_cma_heap_map_dma(struct ion_heap *heap,
 static void ion_cma_heap_unmap_dma(struct ion_heap *heap,
 				   struct ion_buffer *buffer)
 {
-	return;
 }
 
 static int ion_cma_mmap(struct ion_heap *mapper, struct ion_buffer *buffer,

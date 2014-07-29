@@ -1,3 +1,4 @@
+
 #ifndef _MSM_MSM_ION_H
 #define _MSM_MSM_ION_H
 
@@ -94,7 +95,7 @@ struct ion_cma_pdata {
 #ifdef CONFIG_ION
 /**
  *  msm_ion_client_create - allocate a client using the ion_device specified in
- *				drivers/gpu/ion/msm/msm_ion.c
+ *				drivers/staging/android/ion/msm/msm_ion.c
  *
  * name is the same as ion_client_create, return values
  * are the same as ion_client_create.
@@ -150,7 +151,29 @@ int ion_handle_get_size(struct ion_client *client, struct ion_handle *handle,
 int msm_ion_do_cache_op(struct ion_client *client, struct ion_handle *handle,
 			void *vaddr, unsigned long len, unsigned int cmd);
 
-int msm_ion_secure_table(struct sg_table *table);
+/**
+ * msm_ion_secure_buffer - secure an individual buffer
+ *
+ * @client - client who has access to the buffer
+ * @handle - buffer to secure
+ * @usage - usage hint to TZ
+ * @flags - flags for the securing
+ */
+int msm_ion_secure_buffer(struct ion_client *client, struct ion_handle *handle,
+				enum cp_mem_usage usage, int flags);
+
+/**
+ * msm_ion_unsecure_buffer - unsecure an individual buffer
+ *
+ * @client - client who has access to the buffer
+ * @handle - buffer to secure
+ */
+int msm_ion_unsecure_buffer(struct ion_client *client,
+				struct ion_handle *handle);
+
+
+int msm_ion_secure_table(struct sg_table *table, enum cp_mem_usage usage,
+				int flags);
 
 int msm_ion_unsecure_table(struct sg_table *table);
 #else
@@ -172,7 +195,23 @@ static inline int msm_ion_do_cache_op(struct ion_client *client,
 	return -ENODEV;
 }
 
-static inline int msm_ion_secure_table(struct sg_table *table)
+static inline int msm_ion_secure_buffer(struct ion_client *client,
+					struct ion_handle *handle,
+					enum cp_mem_usage usage,
+					int flags)
+{
+	return -ENODEV;
+}
+
+static inline int msm_ion_unsecure_buffer(struct ion_client *client,
+					struct ion_handle *handle)
+{
+	return -ENODEV;
+}
+
+static inline int msm_ion_secure_table(struct sg_table *table,
+				enum cp_mem_usage usage,
+				int flags)
 {
 	return -ENODEV;
 }

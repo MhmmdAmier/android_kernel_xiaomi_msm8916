@@ -1,9 +1,9 @@
 /*
- * drivers/gpu/ion/ion_secure_cma_heap.c
+ * drivers/staging/android/ion/ion_cma_secure_heap.c
  *
  * Copyright (C) Linaro 2012
  * Author: <benjamin.gaignard@linaro.org> for ST-Ericsson.
- * Copyright (c) 2013-2014,2016 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -37,7 +37,6 @@ struct ion_secure_cma_buffer_info {
 	dma_addr_t phys;
 	struct sg_table *table;
 	bool is_cached;
-	int len;
 };
 
 struct ion_cma_alloc_chunk {
@@ -88,7 +87,6 @@ struct ion_cma_secure_heap {
 	struct shrinker shrinker;
 	atomic_t total_allocated;
 	atomic_t total_pool_size;
-	atomic_t total_leaked;
 	unsigned long heap_size;
 	unsigned long default_prefetch_size;
 };
@@ -138,7 +136,7 @@ static int ion_secure_cma_add_to_pool(
 	}
 
 	dma_set_attr(DMA_ATTR_NO_KERNEL_MAPPING, &attrs);
-	dma_set_attr(DMA_ATTR_SKIP_ZEROING, &attrs);
+/*	dma_set_attr(DMA_ATTR_SKIP_ZEROING, &attrs); */
 
 	cpu_addr = dma_alloc_attrs(sheap->dev, len, &handle, GFP_KERNEL,
 								&attrs);
@@ -481,29 +479,17 @@ retry:
 		goto err;
 	}
 
-	info->len = len;
 	ion_secure_cma_get_sgtable(sheap->dev,
 			info->table, info->phys, len);
 
 	/* keep this for memory release */
 	buffer->priv_virt = info;
-	dev_dbg(sheap->dev, "Allocate buffer %pK\n", buffer);
+	dev_dbg(sheap->dev, "Allocate buffer %p\n", buffer);
 	return info;
 
 err:
 	kfree(info);
 	return ION_CMA_ALLOCATE_FAILED;
-}
-
-static void __ion_secure_cma_free(struct ion_cma_secure_heap *sheap,
-				struct ion_secure_cma_buffer_info *info,
-				bool release_memory)
-{
-	if (release_memory)
-		ion_secure_cma_free_from_pool(sheap, info->phys, info->len);
-	sg_free_table(info->table);
-	kfree(info->table);
-	kfree(info);
 }
 
 static int ion_secure_cma_allocate(struct ion_heap *heap,
@@ -540,50 +526,49 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 		int ret;
 
 		if (!msm_secure_v2_is_supported()) {
-			pr_err("%s: securing buffers from clients is not supported on this platform\n",
+			pr_debug("%s: securing buffers is not supported on this platform\n",
 				__func__);
 			ret = 1;
 		} else {
 			trace_ion_cp_secure_buffer_start(heap->name, len, align,
 									flags);
-			ret = msm_ion_secure_table(buf->table);
+			ret = msm_ion_secure_table(buf->table, 0, 0);
 			trace_ion_cp_secure_buffer_end(heap->name, len, align,
 									flags);
 		}
 		if (ret) {
-			struct ion_cma_secure_heap *sheap =
-				container_of(buffer->heap,
-					struct ion_cma_secure_heap, heap);
-
-			pr_err("%s: failed to secure buffer\n", __func__);
-			__ion_secure_cma_free(sheap, buf, true);
+			/*
+			 * Don't treat the secure buffer failing here as an
+			 * error for backwards compatibility reasons. If
+			 * the secure fails, the map will also fail so there
+			 * is no security risk.
+			 */
+			pr_debug("%s: failed to secure buffer\n", __func__);
 		}
-		return ret;
+		return 0;
 	} else {
 		return -ENOMEM;
 	}
 }
+
 
 static void ion_secure_cma_free(struct ion_buffer *buffer)
 {
 	struct ion_cma_secure_heap *sheap =
 		container_of(buffer->heap, struct ion_cma_secure_heap, heap);
 	struct ion_secure_cma_buffer_info *info = buffer->priv_virt;
-	int ret = 0;
 
-	dev_dbg(sheap->dev, "Release buffer %pK\n", buffer);
+	dev_dbg(sheap->dev, "Release buffer %p\n", buffer);
 	if (msm_secure_v2_is_supported())
-		ret = msm_ion_unsecure_table(info->table);
+		msm_ion_unsecure_table(info->table);
 	atomic_sub(buffer->size, &sheap->total_allocated);
 	BUG_ON(atomic_read(&sheap->total_allocated) < 0);
-
 	/* release memory */
-	if (ret) {
-		WARN(1, "Unsecure failed, can't free the memory. Leaking it!");
-		atomic_add(buffer->size, &sheap->total_leaked);
-	}
-
-	__ion_secure_cma_free(sheap, info, ret ? false : true);
+	ion_secure_cma_free_from_pool(sheap, info->phys, buffer->size);
+	/* release sg table */
+	sg_free_table(info->table);
+	kfree(info->table);
+	kfree(info);
 }
 
 static int ion_secure_cma_phys(struct ion_heap *heap, struct ion_buffer *buffer,
@@ -593,8 +578,8 @@ static int ion_secure_cma_phys(struct ion_heap *heap, struct ion_buffer *buffer,
 		container_of(heap, struct ion_cma_secure_heap, heap);
 	struct ion_secure_cma_buffer_info *info = buffer->priv_virt;
 
-	dev_dbg(sheap->dev, "Return buffer %pK physical address 0x%pa\n",
-		buffer, &info->phys);
+	dev_dbg(sheap->dev, "Return buffer %p physical address 0x%pa\n", buffer,
+		&info->phys);
 
 	*addr = info->phys;
 	*len = buffer->size;
@@ -670,9 +655,6 @@ static int ion_secure_cma_print_debug(struct ion_heap *heap, struct seq_file *s,
 				atomic_read(&sheap->total_allocated));
 	seq_printf(s, "Total pool size: 0x%x\n",
 				atomic_read(&sheap->total_pool_size));
-	seq_printf(s, "Total memory leaked due to unlock failures: 0x%x\n",
-				atomic_read(&sheap->total_leaked));
-
 	return 0;
 }
 
@@ -710,7 +692,7 @@ struct ion_heap *ion_secure_cma_heap_create(struct ion_platform_heap *data)
 	INIT_WORK(&sheap->work, ion_secure_pool_pages);
 	sheap->shrinker.seeks = DEFAULT_SEEKS;
 	sheap->shrinker.batch = 0;
-	sheap->shrinker.shrink = ion_secure_cma_shrinker;
+/*	sheap->shrinker.shrink = ion_secure_cma_shrinker; */
 	sheap->default_prefetch_size = sheap->heap_size;
 	register_shrinker(&sheap->shrinker);
 
