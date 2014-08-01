@@ -3511,7 +3511,6 @@ static void free_event(struct perf_event *event)
  */
 static void perf_remove_from_owner(struct perf_event *event)
 {
-	struct perf_event_context *ctx = event->ctx;
 	struct task_struct *owner;
 
 	rcu_read_lock();
@@ -3563,6 +3562,8 @@ static void perf_remove_from_owner(struct perf_event *event)
  */
 static void put_event(struct perf_event *event)
 {
+	struct perf_event_context *ctx = event->ctx;
+
 	if (!atomic_long_dec_and_test(&event->refcount))
 		return;
 
@@ -7791,6 +7792,9 @@ perf_event_create_kernel_counter(struct perf_event_attr *attr, int cpu,
 		err = PTR_ERR(event);
 		goto err;
 	}
+
+	/* Mark owner so we could distinguish it from user events. */
+	event->owner = EVENT_OWNER_KERNEL;
 
 	account_event(event);
 
