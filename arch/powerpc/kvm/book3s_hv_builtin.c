@@ -141,36 +141,33 @@ static DEFINE_SPINLOCK(linear_lock);
 
 static void __init kvm_linear_init_one(ulong size, int count, int type)
 {
-	unsigned long i;
-	unsigned long j, npages;
-	void *linear;
-	struct page *pg;
-	const char *typestr;
-	struct kvmppc_linear_info *linear_info;
+	unsigned long align_size;
+	struct memblock_region *reg;
+	phys_addr_t selected_size = 0;
+	/*
+	 * We cannot use memblock_phys_mem_size() here, because
+	 * memblock_analyze() has not been called yet.
+	 */
+	for_each_memblock(memory, reg)
+		selected_size += memblock_region_memory_end_pfn(reg) -
+				 memblock_region_memory_base_pfn(reg);
 
-	if (!count)
-		return;
+	selected_size = (selected_size * kvm_cma_resv_ratio / 100) << PAGE_SHIFT;
+	if (selected_size) {
+		pr_debug("%s: reserving %ld MiB for global area\n", __func__,
+			 (unsigned long)selected_size / SZ_1M);
+		/*
+		 * Old CPUs require HPT aligned on a multiple of its size. So for them
+		 * make the alignment as max size we could request.
+		 */
+		if (!cpu_has_feature(CPU_FTR_ARCH_206))
+			align_size = __rounddown_pow_of_two(selected_size);
+		else
+			align_size = HPT_ALIGN_PAGES << PAGE_SHIFT;
 
-	typestr = (type == KVM_LINEAR_RMA) ? "RMA" : "HPT";
-
-	npages = size >> PAGE_SHIFT;
-	linear_info = alloc_bootmem(count * sizeof(struct kvmppc_linear_info));
-	for (i = 0; i < count; ++i) {
-		linear = alloc_bootmem_align(size, size);
-		pr_debug("Allocated KVM %s at %p (%ld MB)\n", typestr, linear,
-			 size >> 20);
-		linear_info[i].base_virt = linear;
-		linear_info[i].base_pfn = __pa(linear) >> PAGE_SHIFT;
-		linear_info[i].npages = npages;
-		linear_info[i].type = type;
-		list_add_tail(&linear_info[i].list, &free_linears);
-		atomic_set(&linear_info[i].use_count, 0);
-
-		pg = pfn_to_page(linear_info[i].base_pfn);
-		for (j = 0; j < npages; ++j) {
-			atomic_inc(&pg->_count);
-			++pg;
-		}
+		align_size = max(kvm_rma_pages << PAGE_SHIFT, align_size);
+		cma_declare_contiguous(0, selected_size, 0, align_size,
+			KVM_CMA_CHUNK_ORDER - PAGE_SHIFT, false, &kvm_cma);
 	}
 }
 
