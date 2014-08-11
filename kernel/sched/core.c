@@ -2243,7 +2243,6 @@ const char *sched_window_reset_reasons[] = {
 	"FREQ_ACCOUNT_WAIT_TIME_CHANGE"};
 
 /* Called with IRQs enabled */
-void reset_all_window_stats(u64 window_start, unsigned int window_size)
 {
 	int cpu;
 	unsigned long flags;
@@ -2414,7 +2413,7 @@ int sched_set_window(u64 window_start, unsigned int window_size)
 
 	BUG_ON(sched_clock() < ws);
 
-	reset_all_window_stats(ws, window_size, -1, -1, 0);
+	reset_all_window_stats(ws, window_size);
 
 	mutex_unlock(&policy_mutex);
 
