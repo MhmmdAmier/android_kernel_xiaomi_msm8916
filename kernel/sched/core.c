@@ -1395,6 +1395,12 @@ unsigned int max_possible_efficiency = 1024;
 unsigned int min_possible_efficiency = 1024;
 
 /*
+ * Force-issue notification to governor if we waited long enough since sending
+ * last notification and did not see any freq change.
+ */
+__read_mostly unsigned int sysctl_sched_gov_response_time = 10000000;
+
+/*
  * Maximum possible frequency across all cpus. Task demand and cpu
  * capacity (cpu_power) metrics are scaled in reference to it.
  */
@@ -2722,6 +2728,23 @@ static int cpufreq_notifier_trans(struct notifier_block *nb,
 		raw_spin_unlock_irqrestore(&rq->lock, flags);
 	}
 
+	/* clear freq request for CPUs in the same freq domain */
+	if (!rq->freq_requested)
+		return 0;
+
+	/* The first CPU (and its rq lock) in a freq domain is used to
+	 * serialize all freq change tests and notifications for CPUs
+	 * in that domain. */
+	cpu = cpumask_first(&rq->freq_domain_cpumask);
+	if (cpu >= nr_cpu_ids)
+		return 0;
+
+	rq = cpu_rq(cpu);
+	raw_spin_lock_irqsave(&rq->lock, flags);
+	for_each_cpu(cpu, &rq->freq_domain_cpumask)
+		cpu_rq(cpu)->freq_requested = 0;
+	raw_spin_unlock_irqrestore(&rq->lock, flags);
+
 	return 0;
 }
 
@@ -3961,6 +3984,8 @@ void wake_up_new_task(struct task_struct *p)
 		p->sched_class->task_woken(rq, p);
 #endif
 	task_rq_unlock(rq, p, &flags);
+	if (init_task_load)
+		check_for_freq_change(rq);
 }
 
 #ifdef CONFIG_PREEMPT_NOTIFIERS
