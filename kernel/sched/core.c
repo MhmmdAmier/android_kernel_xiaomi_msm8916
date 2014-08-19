@@ -1388,6 +1388,9 @@ static __read_mostly unsigned int sched_window_stats_policy =
 /* 1 -> use PELT based load stats, 0 -> use window-based load stats */
 unsigned int __read_mostly sched_use_pelt;
 
+/* Temporarily disable window-stats activity on all cpus */
+unsigned int __read_mostly sched_disable_window_stats;
+
 unsigned int max_possible_efficiency = 1024;
 unsigned int min_possible_efficiency = 1024;
 
