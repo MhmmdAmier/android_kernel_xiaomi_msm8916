@@ -2414,6 +2414,10 @@ int sched_set_window(u64 window_start, unsigned int window_size)
 	while (ws > now)
 		ws -= (window_size * TICK_NSEC);
 
+	now = sched_clock();
+	while (ws > now)
+		ws -= (window_size * TICK_NSEC);
+
 	BUG_ON(sched_clock() < ws);
 
 	reset_all_window_stats(ws, window_size);
