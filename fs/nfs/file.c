@@ -906,19 +906,6 @@ int nfs_flock(struct file *filp, int cmd, struct file_lock *fl)
 }
 EXPORT_SYMBOL_GPL(nfs_flock);
 
-/*
- * There is no protocol support for leases, so we have no way to implement
- * them correctly in the face of opens by other clients.
- */
-int nfs_setlease(struct file *file, long arg, struct file_lock **fl)
-{
-	dprintk("NFS: setlease(%s/%s, arg=%ld)\n",
-			file->f_path.dentry->d_parent->d_name.name,
-			file->f_path.dentry->d_name.name, arg);
-	return -EINVAL;
-}
-EXPORT_SYMBOL_GPL(nfs_setlease);
-
 const struct file_operations nfs_file_operations = {
 	.llseek		= nfs_file_llseek,
 	.read		= do_sync_read,
@@ -935,6 +922,6 @@ const struct file_operations nfs_file_operations = {
 	.splice_read	= nfs_file_splice_read,
 	.splice_write	= nfs_file_splice_write,
 	.check_flags	= nfs_check_flags,
-	.setlease	= nfs_setlease,
+	.setlease	= simple_nosetlease,
 };
 EXPORT_SYMBOL_GPL(nfs_file_operations);
