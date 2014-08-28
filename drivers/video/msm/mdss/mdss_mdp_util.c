@@ -17,7 +17,6 @@
 #include <linux/file.h>
 #include <linux/msm_ion.h>
 #include <linux/qcom_iommu.h>
-#include <linux/msm_kgsl.h>
 #include <linux/spinlock.h>
 #include <linux/types.h>
 #include <linux/major.h>
@@ -555,11 +554,7 @@ static int mdss_mdp_get_img(struct msmfb_data *img,
 	data->p_need = 0;
 	data->offset = img->offset;
 
-	if (img->flags & MDP_BLIT_SRC_GEM) {
-		data->srcp_file = NULL;
-		ret = kgsl_gem_obj_addr(img->memory_id, (int) img->priv,
-					(unsigned long *)start, len);
-	} else if (img->flags & MDP_MEMORY_ID_TYPE_FB) {
+	if (img->flags & MDP_MEMORY_ID_TYPE_FB) {
 		file = fget_light(img->memory_id, &data->p_need);
 		if (file == NULL) {
 			pr_err("invalid framebuffer file (%d)\n",
