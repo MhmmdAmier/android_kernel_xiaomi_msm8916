@@ -1388,9 +1388,6 @@ static __read_mostly unsigned int sched_window_stats_policy =
 /* 1 -> use PELT based load stats, 0 -> use window-based load stats */
 unsigned int __read_mostly sched_use_pelt;
 
-/* Temporarily disable window-stats activity on all cpus */
-unsigned int __read_mostly sched_disable_window_stats;
-
 unsigned int max_possible_efficiency = 1024;
 unsigned int min_possible_efficiency = 1024;
 
@@ -1420,6 +1417,18 @@ unsigned int max_load_scale_factor = 1024; /* max possible load scale factor */
 unsigned int max_possible_capacity = 1024; /* max(rq->max_possible_capacity) */
 unsigned int min_max_possible_capacity = 1024; /* min(max_possible_capacity) */
 unsigned int min_max_capacity_delta_pct;
+
+/* Window size (in ns) */
+__read_mostly unsigned int sched_ravg_window = 10000000;
+
+/* Min window size (in ns) = 10ms */
+#define MIN_SCHED_RAVG_WINDOW 10000000
+
+/* Max window size (in ns) = 1s */
+#define MAX_SCHED_RAVG_WINDOW 1000000000
+
+/* Temporarily disable window-stats activity on all cpus */
+unsigned int __read_mostly sched_disable_window_stats;
 
 /* Window size (in ns) */
 __read_mostly unsigned int sched_ravg_window = 10000000;
@@ -1827,6 +1836,24 @@ static inline void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 }
 
 #endif	/* CONFIG_SCHED_FREQ_INPUT */
+
+static int account_busy_for_task_demand(struct task_struct *p, int event)
+{
+	/* No need to bother updating task demand for exiting tasks
+	 * or the idle task. */
+	if (exiting_task(p) || is_idle_task(p))
+		return 0;
+
+	/* When a task is waking up it is completing a segment of non-busy
+	 * time. Likewise, if wait time is not treated as busy time, then
+	 * when a task begins to run or is migrated, it is not running and
+	 * is completing a segment of non-busy time. */
+	if (event == TASK_WAKE || (!sched_account_wait_time &&
+			 (event == PICK_NEXT_TASK || event == TASK_MIGRATE)))
+		return 0;
+
+	return 1;
+}
 
 static int account_busy_for_task_demand(struct task_struct *p, int event)
 {
@@ -2728,6 +2755,7 @@ static int cpufreq_notifier_trans(struct notifier_block *nb,
 		raw_spin_unlock_irqrestore(&rq->lock, flags);
 	}
 
+#ifdef CONFIG_SCHED_FREQ_INPUT
 	/* clear freq request for CPUs in the same freq domain */
 	if (!rq->freq_requested)
 		return 0;
@@ -2744,6 +2772,7 @@ static int cpufreq_notifier_trans(struct notifier_block *nb,
 	for_each_cpu(cpu, &rq->freq_domain_cpumask)
 		cpu_rq(cpu)->freq_requested = 0;
 	raw_spin_unlock_irqrestore(&rq->lock, flags);
+#endif
 
 	return 0;
 }
@@ -3984,8 +4013,6 @@ void wake_up_new_task(struct task_struct *p)
 		p->sched_class->task_woken(rq, p);
 #endif
 	task_rq_unlock(rq, p, &flags);
-	if (init_task_load)
-		check_for_freq_change(rq);
 }
 
 #ifdef CONFIG_PREEMPT_NOTIFIERS

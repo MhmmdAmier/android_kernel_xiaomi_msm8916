@@ -613,8 +613,6 @@ struct rq {
 	 */
 	unsigned int cur_freq, max_freq, min_freq, max_possible_freq;
 	struct cpumask freq_domain_cpumask;
-	unsigned int freq_requested;
-	u64 freq_requested_ts;
 
 	u64 cumulative_runnable_avg;
 	int efficiency; /* Differentiate cpus with different IPC capability */
@@ -1021,15 +1019,9 @@ static inline int same_freq_domain(int src_cpu, int dst_cpu)
 	return cpumask_test_cpu(dst_cpu, &rq->freq_domain_cpumask);
 }
 
-#ifdef CONFIG_SCHED_HMP
-#define init_task_load	sysctl_sched_init_task_load_pct
-#else
-#define init_task_load	0
-#endif
-
 #else	/* CONFIG_SCHED_FREQ_INPUT */
 
-#define init_task_load	0
+#define sched_migration_fixup	0
 
 static inline void check_for_freq_change(struct rq *rq) { }
 
