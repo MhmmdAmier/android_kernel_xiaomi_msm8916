@@ -36,10 +36,12 @@ extern struct key_type key_type_user;
 extern struct key_type key_type_logon;
 
 struct key_preparsed_payload;
+struct key_match_data;
 
 extern int user_instantiate(struct key *key, struct key_preparsed_payload *prep);
 extern int user_update(struct key *key, struct key_preparsed_payload *prep);
-extern int user_match(const struct key *key, const void *criterion);
+extern int user_match(const struct key *key,
+		      const struct key_match_data *match_data);
 extern void user_revoke(struct key *key);
 extern void user_destroy(struct key *key);
 extern void user_describe(const struct key *user, struct seq_file *m);
