@@ -1099,7 +1099,6 @@ struct key_type key_type_trusted = {
 	.name = "trusted",
 	.instantiate = trusted_instantiate,
 	.update = trusted_update,
-	.match = user_match,
 	.destroy = trusted_destroy,
 	.describe = user_describe,
 	.read = trusted_read,

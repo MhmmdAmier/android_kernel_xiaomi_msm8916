@@ -73,7 +73,6 @@ error:
 static struct key_type key_type_pkcs7 = {
 	.name			= "pkcs7_test",
 	.instantiate		= pkcs7_instantiate,
-	.match			= user_match,
 	.revoke			= user_revoke,
 	.destroy		= user_destroy,
 	.describe		= user_describe,

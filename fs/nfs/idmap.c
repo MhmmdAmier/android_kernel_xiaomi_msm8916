@@ -173,7 +173,6 @@ static int nfs_map_numeric_to_string(__u32 id, char *buf, size_t buflen)
 static struct key_type key_type_id_resolver = {
 	.name		= "id_resolver",
 	.instantiate	= user_instantiate,
-	.match		= user_match,
 	.revoke		= user_revoke,
 	.destroy	= user_destroy,
 	.describe	= user_describe,
@@ -397,7 +396,6 @@ static const struct rpc_pipe_ops idmap_upcall_ops = {
 static struct key_type key_type_id_resolver_legacy = {
 	.name		= "id_legacy",
 	.instantiate	= user_instantiate,
-	.match		= user_match,
 	.revoke		= user_revoke,
 	.destroy	= user_destroy,
 	.describe	= user_describe,

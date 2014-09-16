@@ -28,7 +28,6 @@ struct key_type key_type_user = {
 	.name			= "user",
 	.instantiate		= user_instantiate,
 	.update			= user_update,
-	.match			= user_match,
 	.revoke			= user_revoke,
 	.destroy		= user_destroy,
 	.describe		= user_describe,
@@ -47,7 +46,6 @@ struct key_type key_type_logon = {
 	.name			= "logon",
 	.instantiate		= user_instantiate,
 	.update			= user_update,
-	.match			= user_match,
 	.revoke			= user_revoke,
 	.destroy		= user_destroy,
 	.describe		= user_describe,
@@ -135,16 +133,6 @@ error:
 }
 
 EXPORT_SYMBOL_GPL(user_update);
-
-/*
- * match users on their name
- */
-int user_match(const struct key *key, const struct key_match_data *match_data)
-{
-	return strcmp(key->description, match_data->raw_data) == 0;
-}
-
-EXPORT_SYMBOL_GPL(user_match);
 
 /*
  * dispose of the links from a revoked keyring
