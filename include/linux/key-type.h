@@ -80,9 +80,6 @@ struct key_type {
 	 */
 	size_t def_datalen;
 
-	/* Default key search algorithm. */
-	unsigned def_lookup_type;
-
 	/* vet a description */
 	int (*vet_description)(const char *description);
 

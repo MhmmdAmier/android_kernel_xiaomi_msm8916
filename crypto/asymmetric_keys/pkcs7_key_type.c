@@ -72,7 +72,6 @@ error:
  */
 static struct key_type key_type_pkcs7 = {
 	.name			= "pkcs7_test",
-	.def_lookup_type	= KEYRING_SEARCH_LOOKUP_DIRECT,
 	.instantiate		= pkcs7_instantiate,
 	.match			= user_match,
 	.revoke			= user_revoke,

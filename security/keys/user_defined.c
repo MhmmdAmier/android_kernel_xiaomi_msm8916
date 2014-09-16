@@ -26,7 +26,6 @@ static int logon_vet_description(const char *desc);
  */
 struct key_type key_type_user = {
 	.name			= "user",
-	.def_lookup_type	= KEYRING_SEARCH_LOOKUP_DIRECT,
 	.instantiate		= user_instantiate,
 	.update			= user_update,
 	.match			= user_match,
@@ -46,7 +45,6 @@ EXPORT_SYMBOL_GPL(key_type_user);
  */
 struct key_type key_type_logon = {
 	.name			= "logon",
-	.def_lookup_type	= KEYRING_SEARCH_LOOKUP_DIRECT,
 	.instantiate		= user_instantiate,
 	.update			= user_update,
 	.match			= user_match,
