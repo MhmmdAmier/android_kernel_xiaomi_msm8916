@@ -176,7 +176,7 @@ static unsigned int num_clusters_in_group(struct super_block *sb,
 }
 
 /* Initializes an uninitialized block bitmap */
-static void ext4_init_block_bitmap(struct super_block *sb,
+static int ext4_init_block_bitmap(struct super_block *sb,
 				   struct buffer_head *bh,
 				   ext4_group_t block_group,
 				   struct ext4_group_desc *gdp)
@@ -195,7 +195,7 @@ static void ext4_init_block_bitmap(struct super_block *sb,
 		grp = ext4_get_group_info(sb, block_group);
 		set_bit(EXT4_GROUP_INFO_BBITMAP_CORRUPT_BIT, &grp->bb_state);
 		set_bit(EXT4_GROUP_INFO_IBITMAP_CORRUPT_BIT, &grp->bb_state);
-		return;
+		return -EIO;
 	}
 	memset(bh->b_data, 0, sb->s_blocksize);
 
@@ -420,12 +420,16 @@ ext4_read_block_bitmap_nowait(struct super_block *sb, ext4_group_t block_group)
 	}
 	ext4_lock_group(sb, block_group);
 	if (desc->bg_flags & cpu_to_le16(EXT4_BG_BLOCK_UNINIT)) {
-		ext4_init_block_bitmap(sb, bh, block_group, desc);
+		int err;
+
+		err = ext4_init_block_bitmap(sb, bh, block_group, desc);
 		set_bitmap_uptodate(bh);
 		set_buffer_uptodate(bh);
 		set_buffer_verified(bh);
 		ext4_unlock_group(sb, block_group);
 		unlock_buffer(bh);
+		if (err)
+			ext4_error(sb, "Checksum bad for grp %u", block_group);
 		return bh;
 	}
 	ext4_unlock_group(sb, block_group);
