@@ -2761,25 +2761,6 @@ static int cpufreq_notifier_trans(struct notifier_block *nb,
 		raw_spin_unlock_irqrestore(&rq->lock, flags);
 	}
 
-#ifdef CONFIG_SCHED_FREQ_INPUT
-	/* clear freq request for CPUs in the same freq domain */
-	if (!rq->freq_requested)
-		return 0;
-
-	/* The first CPU (and its rq lock) in a freq domain is used to
-	 * serialize all freq change tests and notifications for CPUs
-	 * in that domain. */
-	cpu = cpumask_first(&rq->freq_domain_cpumask);
-	if (cpu >= nr_cpu_ids)
-		return 0;
-
-	rq = cpu_rq(cpu);
-	raw_spin_lock_irqsave(&rq->lock, flags);
-	for_each_cpu(cpu, &rq->freq_domain_cpumask)
-		cpu_rq(cpu)->freq_requested = 0;
-	raw_spin_unlock_irqrestore(&rq->lock, flags);
-#endif
-
 	return 0;
 }
 
