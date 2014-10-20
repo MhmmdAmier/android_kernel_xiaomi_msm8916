@@ -27,6 +27,7 @@
 #include <linux/fs.h>
 #include <linux/io.h>
 #include <linux/dma-contiguous.h>
+#include <linux/cma.h>
 
 #include <asm/cputype.h>
 #include <asm/fixmap.h>
@@ -264,21 +265,10 @@ static void __init alloc_init_pte(pmd_t *pmd, unsigned long addr,
 
 static void __init alloc_init_pmd(struct mm_struct *mm, pud_t *pud,
 				  unsigned long addr, unsigned long end,
-				  phys_addr_t phys, int map_io, bool pages)
+				  phys_addr_t phys, pgprot_t prot, bool pages)
 {
 	pmd_t *pmd;
 	unsigned long next;
-	pmdval_t prot_sect;
-	pgprot_t prot_pte;
-
-	if (map_io) {
-		prot_sect = PMD_TYPE_SECT | PMD_SECT_AF |
-			    PMD_ATTRINDX(MT_DEVICE_nGnRE);
-		prot_pte = __pgprot(PROT_DEVICE_nGnRE);
-	} else {
-		prot_sect = prot_sect_kernel;
-		prot_pte = PAGE_KERNEL;
-	}
 
 	/*
 	 * Check for initial section mappings in the pgd/pud and remove them.
@@ -294,7 +284,8 @@ static void __init alloc_init_pmd(struct mm_struct *mm, pud_t *pud,
 		/* try section mapping first */
 		if (!pages && ((addr | next | phys) & ~SECTION_MASK) == 0) {
 			pmd_t old_pmd =*pmd;
-			set_pmd(pmd, __pmd(phys | PROT_SECT_NORMAL_EXEC));
+			set_pmd(pmd, __pmd(phys |
+					   pgprot_val(mk_sect_prot(prot))));
 			/*
 			 * Check for previous table entries created during
 			 * boot (__create_page_tables) and flush them.
@@ -303,7 +294,7 @@ static void __init alloc_init_pmd(struct mm_struct *mm, pud_t *pud,
 				flush_tlb_all();
 		} else {
 			alloc_init_pte(pmd, addr, next, __phys_to_pfn(phys),
-				       prot_pte);
+				       prot);
 		}
 		phys += next - addr;
 	} while (pmd++, addr = next, addr != end);
@@ -311,7 +302,7 @@ static void __init alloc_init_pmd(struct mm_struct *mm, pud_t *pud,
 
 static void __init alloc_init_pud(struct mm_struct *mm, pgd_t *pgd,
 				  unsigned long addr, unsigned long end,
-				  phys_addr_t phys, int map_io, bool force_pages)
+				  phys_addr_t phys, pgprot_t prot, bool force_pages)
 {
 	pud_t *pud;
 	unsigned long next;
@@ -333,7 +324,8 @@ static void __init alloc_init_pud(struct mm_struct *mm, pgd_t *pgd,
 		    (((addr | next | phys) & ~PUD_MASK) == 0) &&
 				!dma_overlap(phys, phys + next - addr)) {
 			pud_t old_pud = *pud;
-			set_pud(pud, __pud(phys | PROT_SECT_NORMAL_EXEC));
+			set_pud(pud, __pud(phys |
+					   pgprot_val(mk_sect_prot(prot))));
 
 			/*
 			 * If we have an old value for a pud, it will
@@ -348,7 +340,7 @@ static void __init alloc_init_pud(struct mm_struct *mm, pgd_t *pgd,
 				flush_tlb_all();
 			}
 		} else {
-			alloc_init_pmd(mm, pud, addr, next, phys, map_io, force_pages);
+			alloc_init_pmd(mm, pud, addr, next, phys, prot, force_pages);
 		}
 		phys += next - addr;
 	} while (pud++, addr = next, addr != end);
@@ -361,7 +353,7 @@ static void __init alloc_init_pud(struct mm_struct *mm, pgd_t *pgd,
 
 static void __init __create_mapping(struct mm_struct *mm, pgd_t *pgd,
 				    phys_addr_t phys, unsigned long virt,
-				    phys_addr_t size, int map_io, bool force_pages)
+				    phys_addr_t size, pgprot_t prot, bool force_pages)
 {
 	unsigned long addr, length, end, next;
 
@@ -371,7 +363,7 @@ static void __init __create_mapping(struct mm_struct *mm, pgd_t *pgd,
 	end = addr + length;
 	do {
 		next = pgd_addr_end(addr, end);
-		alloc_init_pud(mm, pgd, addr, next, phys, map_io, force_pages);
+		alloc_init_pud(mm, pgd, addr, next, phys, prot, force_pages);
 		phys += next - addr;
 	} while (pgd++, addr = next, addr != end);
 }
@@ -385,17 +377,7 @@ static void __init create_mapping(phys_addr_t phys, unsigned long virt,
 		return;
 	}
 	__create_mapping(&init_mm, pgd_offset_k(virt & PAGE_MASK), phys, virt,
-			 size, 0, force_pages);
-}
-
-void __init create_id_mapping(phys_addr_t addr, phys_addr_t size, int map_io)
-{
-	if ((addr >> PGDIR_SHIFT) >= ARRAY_SIZE(idmap_pg_dir)) {
-		pr_warn("BUG: not creating id mapping for %pa\n", &addr);
-		return;
-	}
-	__create_mapping(&idmap_pg_dir[pgd_index(addr)],
-			 addr, addr, size, map_io, false);
+			 size, PAGE_KERNEL_EXEC, force_pages);
 }
 
 static inline pmd_t *pmd_off_k(unsigned long virt)
@@ -455,6 +437,26 @@ static void __init dma_contiguous_remap(void)
 	for (i = 0; i < dma_mmu_remap_num; i++)
 		remap_as_pages(dma_mmu_remap[i].base,
 			       dma_mmu_remap[i].size);
+}
+
+void __init create_id_mapping(phys_addr_t addr, phys_addr_t size, int map_io)
+{
+	if ((addr >> PGDIR_SHIFT) >= ARRAY_SIZE(idmap_pg_dir)) {
+		pr_warn("BUG: not creating id mapping for %pa\n", &addr);
+		return;
+	}
+	__create_mapping(&init_mm, &idmap_pg_dir[pgd_index(addr)],
+			 addr, addr, size,
+			 map_io ? __pgprot(PROT_DEVICE_nGnRE)
+				: PAGE_KERNEL_EXEC,
+			 false);
+}
+
+void __init create_pgd_mapping(struct mm_struct *mm, phys_addr_t phys,
+			       unsigned long virt, phys_addr_t size,
+			       pgprot_t prot)
+{
+	__create_mapping(mm, pgd_offset(mm, virt), phys, virt, size, prot, false);
 }
 
 static void __init map_mem(void)
@@ -606,9 +608,6 @@ void __init paging_init(void)
 	bootmem_init();
 
 	empty_zero_page = virt_to_page(zero_page);
-
-	/* Ensure the zero page is visible to the page table walker */
-	dsb(ishst);
 
 	/*
 	 * TTBR0 is only used for the identity mapping at this stage. Make it
