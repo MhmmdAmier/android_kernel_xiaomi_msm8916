@@ -159,7 +159,7 @@ int dcache_readdir(struct file *file, struct dir_context *ctx)
 		list_move(q, &dentry->d_subdirs);
 
 	for (p = q->next; p != &dentry->d_subdirs; p = p->next) {
-		struct dentry *next = list_entry(p, struct dentry, d_u.d_child);
+		struct dentry *next = list_entry(p, struct dentry, d_child);
 		spin_lock_nested(&next->d_lock, DENTRY_D_LOCK_NESTED);
 		if (!simple_positive(next)) {
 			spin_unlock(&next->d_lock);
