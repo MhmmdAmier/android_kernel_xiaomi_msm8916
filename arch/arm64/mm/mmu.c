@@ -35,6 +35,7 @@
 #include <asm/tlb.h>
 #include <asm/memblock.h>
 #include <asm/mmu_context.h>
+#include <asm/cacheflush.h>
 
 #include "mm.h"
 
@@ -613,6 +614,8 @@ void __init paging_init(void)
 	 * point to zero page to avoid speculatively fetching new entries.
 	 */
 	cpu_set_reserved_ttbr0();
+	flush_tlb_all();
+	set_kernel_text_ro();
 	flush_tlb_all();
 }
 
