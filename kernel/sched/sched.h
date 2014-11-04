@@ -619,6 +619,8 @@ struct rq {
 	int capacity;
 	int max_possible_capacity;
 	u64 window_start;
+	u32 mostly_idle_load;
+	int mostly_idle_nr_run;
 
 	u64 cur_irqload;
 	u64 avg_irqload;
