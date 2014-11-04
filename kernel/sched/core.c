@@ -2285,6 +2285,7 @@ const char *sched_window_reset_reasons[] = {
 	u64 start_ts = sched_clock();
 	int reason = WINDOW_CHANGE;
 	unsigned int old = 0, new = 0;
+	unsigned int old_window_size = sched_ravg_window;
 
 	disable_window_stats();
 
@@ -2307,8 +2308,13 @@ const char *sched_window_reset_reasons[] = {
 	for_each_possible_cpu(cpu) {
 		struct rq *rq = cpu_rq(cpu);
 
-		if (window_start)
+		if (window_start) {
+			u32 mostly_idle_load = rq->mostly_idle_load;
+
 			rq->window_start = window_start;
+			rq->mostly_idle_load = div64_u64((u64)mostly_idle_load *
+				 (u64)sched_ravg_window, (u64)old_window_size);
+		}
 #ifdef CONFIG_SCHED_FREQ_INPUT
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 #endif
