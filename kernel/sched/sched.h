@@ -620,6 +620,10 @@ struct rq {
 	int max_possible_capacity;
 	u64 window_start;
 
+	u64 cur_irqload;
+	u64 avg_irqload;
+	u64 irqload_ts;
+
 #ifdef CONFIG_SCHED_FREQ_INPUT
 	unsigned int old_busy_time;
 	int notifier_sent;
