@@ -346,7 +346,9 @@ void __init mem_init(void)
 
 void free_initmem(void)
 {
+
 	poison_init_mem(__init_begin, __init_end - __init_begin);
+	fixup_init();
 	free_initmem_default(-1);
 }
 
