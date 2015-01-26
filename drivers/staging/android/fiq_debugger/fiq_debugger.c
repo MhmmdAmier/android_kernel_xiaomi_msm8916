@@ -538,7 +538,7 @@ static bool fiq_debugger_fiq_exec(struct fiq_debugger_state *state,
 					    state->current_cpu);
 	} else if (!strncmp(cmd, "cpu ", 4) && sysrq_on()) {
 		unsigned long cpu = 0;
-		if (strict_strtoul(cmd + 4, 10, &cpu) == 0)
+		if (kstrtoul(cmd + 4, 10, &cpu) == 0)
 			fiq_debugger_switch_cpu(state, cpu);
 		else
 			fiq_debugger_printf(&state->output, "invalid cpu\n");
