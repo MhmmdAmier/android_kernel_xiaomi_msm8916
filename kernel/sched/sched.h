@@ -1008,6 +1008,11 @@ static inline u64 scale_load_to_cpu(u64 load, int cpu)
 	return load;
 }
 
+static inline unsigned int nr_eligible_big_tasks(int cpu)
+{
+	return 0;
+}
+
 static inline int pct_task_load(struct task_struct *p) { return 0; }
 
 static inline int capacity(struct rq *rq)
@@ -1041,11 +1046,6 @@ static inline void sched_account_irqtime(int cpu, struct task_struct *curr,
 }
 
 static inline int sched_cpu_high_irqload(int cpu) { return 0; }
-
-static inline unsigned int nr_eligible_big_tasks(int cpu)
-{
-	return 0;
-}
 
 #endif	/* CONFIG_SCHED_HMP */
 
