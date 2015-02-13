@@ -2029,9 +2029,8 @@ static int __init dm_crypt_init(void)
 	int r;
 
 	r = dm_register_target(&crypt_target);
-	if (r < 0) {
+	if (r < 0)
 		DMERR("register failed %d", r);
-	}
 
 	return r;
 }
