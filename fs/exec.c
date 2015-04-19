@@ -1326,7 +1326,6 @@ static void bprm_fill_uid(struct linux_binprm *bprm)
 	}
 }
 
-
 /*
  * Fill the binprm structure from the inode.
  * Check permissions, then read the first 128 (BINPRM_BUF_SIZE) bytes
@@ -1335,8 +1334,6 @@ static void bprm_fill_uid(struct linux_binprm *bprm)
  */
 int prepare_binprm(struct linux_binprm *bprm)
 {
-	struct inode *inode = file_inode(bprm->file);
-	umode_t mode = inode->i_mode;
 	int retval;
 
 	bprm_fill_uid(bprm);
