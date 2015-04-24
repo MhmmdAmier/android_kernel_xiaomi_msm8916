@@ -1364,6 +1364,7 @@ static void vmstat_update(struct work_struct *w)
 		 * update worker thread.
 		 */
 		schedule_delayed_work_on(smp_processor_id(),
+				this_cpu_ptr(&vmstat_work),
 			round_jiffies_relative(sysctl_stat_interval));
 	else {
 		/*
