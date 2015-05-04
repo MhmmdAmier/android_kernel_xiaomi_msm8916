@@ -154,8 +154,11 @@ static inline void *kvm_get_hwpgd(struct kvm *kvm)
 struct kvm;
 
 static inline void coherent_cache_guest_page(struct kvm_vcpu *vcpu, hva_t hva,
-					     unsigned long size)
+					     unsigned long size,
+					     bool ipa_uncached)
 {
+	if (!vcpu_has_cache_enabled(vcpu) || ipa_uncached)
+		kvm_flush_dcache_to_poc((void *)hva, size);
 	/*
 	 * If we are going to insert an instruction page and the icache is
 	 * either VIPT or PIPT, there is a potential problem where the host
