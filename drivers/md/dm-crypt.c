@@ -22,7 +22,6 @@
 #include <linux/backing-dev.h>
 #include <linux/atomic.h>
 #include <linux/scatterlist.h>
-#include <linux/rbtree.h>
 #include <asm/page.h>
 #include <asm/unaligned.h>
 #include <crypto/hash.h>
@@ -61,7 +60,7 @@ struct dm_crypt_io {
 	int error;
 	sector_t sector;
 
-	struct rb_node rb_node;
+	struct list_head list;
 } CRYPTO_MINALIGN_ATTR;
 
 struct dm_crypt_request {
@@ -111,7 +110,7 @@ struct iv_tcw_private {
  * Crypt: maps a linear range of a block device
  * and encrypts / decrypts at the same time.
  */
-enum flags { DM_CRYPT_SUSPENDED, DM_CRYPT_KEY_VALID };
+enum flags { DM_CRYPT_SUSPENDED, DM_CRYPT_KEY_VALID, DM_CRYPT_SAME_CPU };
 
 /*
  * The fields in here must be read only after initialization.
@@ -134,7 +133,7 @@ struct crypt_config {
 
 	struct task_struct *write_thread;
 	wait_queue_head_t write_thread_wait;
-	struct rb_root write_tree;
+	struct list_head write_thread_list;
 
 	char *cipher;
 	char *cipher_string;
@@ -899,6 +898,7 @@ static void crypt_free_req(struct crypt_config *cc,
 			   struct ablkcipher_request *req, struct bio *base_bio)
 {
 	struct dm_crypt_io *io = dm_per_bio_data(base_bio, cc->per_bio_data_size);
+
 	if ((struct ablkcipher_request *)(io + 1) != req)
 		mempool_free(req, cc->req_pool);
 }
@@ -925,7 +925,7 @@ static int crypt_convert(struct crypt_config *cc,
 		/* async */
 		case -EBUSY:
 			wait_for_completion(&ctx->restart);
-			INIT_COMPLETION(ctx->restart);
+			reinit_completion(&ctx->restart);
 			/* fall through*/
 		case -EINPROGRESS:
 			ctx->req = NULL;
@@ -1172,7 +1172,7 @@ static int dmcrypt_write(void *data)
 {
 	struct crypt_config *cc = data;
 	while (1) {
-		struct rb_root write_tree;
+		struct list_head local_list;
 		struct blk_plug plug;
 
 		DECLARE_WAITQUEUE(wait, current);
@@ -1180,7 +1180,7 @@ static int dmcrypt_write(void *data)
 		spin_lock_irq(&cc->write_thread_wait.lock);
 continue_locked:
 
-		if (!RB_EMPTY_ROOT(&cc->write_tree))
+		if (!list_empty(&cc->write_thread_list))
 			goto pop_from_list;
 
 		__set_current_state(TASK_INTERRUPTIBLE);
@@ -1202,35 +1202,30 @@ continue_locked:
 		goto continue_locked;
 
 pop_from_list:
-		write_tree = cc->write_tree;
-		cc->write_tree = RB_ROOT;
+		local_list = cc->write_thread_list;
+		local_list.next->prev = &local_list;
+		local_list.prev->next = &local_list;
+		INIT_LIST_HEAD(&cc->write_thread_list);
+
 		spin_unlock_irq(&cc->write_thread_wait.lock);
 
-		BUG_ON(rb_parent(write_tree.rb_node));
-
-		/*
-		 * Note: we cannot walk the tree here with rb_next because
-		 * the structures may be freed when kcryptd_io_write is called.
-		 */
 		blk_start_plug(&plug);
 		do {
-			struct dm_crypt_io *io = rb_entry(rb_first(&write_tree),
-						struct dm_crypt_io, rb_node);
-			rb_erase(&io->rb_node, &write_tree);
+			struct dm_crypt_io *io = container_of(local_list.next,
+						struct dm_crypt_io, list);
+			list_del(&io->list);
 			kcryptd_io_write(io);
-		} while (!RB_EMPTY_ROOT(&write_tree));
+		} while (!list_empty(&local_list));
 		blk_finish_plug(&plug);
 	}
 	return 0;
 }
 
-static void kcryptd_crypt_write_io_submit(struct dm_crypt_io *io)
+static void kcryptd_crypt_write_io_submit(struct dm_crypt_io *io, int async)
 {
 	struct bio *clone = io->ctx.bio_out;
 	struct crypt_config *cc = io->cc;
 	unsigned long flags;
-	sector_t sector;
-	struct rb_node **p, *parent;
 
 	if (unlikely(io->error < 0)) {
 		crypt_free_buffer_pages(cc, clone);
@@ -1245,21 +1240,7 @@ static void kcryptd_crypt_write_io_submit(struct dm_crypt_io *io)
 	clone->bi_iter.bi_sector = cc->start + io->sector;
 
 	spin_lock_irqsave(&cc->write_thread_wait.lock, flags);
-	p = &cc->write_tree.rb_node;
-	parent = NULL;
-	sector = io->sector;
-	while (*p) {
-		parent = *p;
-#define io_node rb_entry(parent, struct dm_crypt_io, rb_node)
-		if (sector < io_node->sector)
-			p = &io_node->rb_node.rb_left;
-		else
-			p = &io_node->rb_node.rb_right;
-#undef io_node
-	}
-	rb_link_node(&io->rb_node, parent, p);
-	rb_insert_color(&io->rb_node, &cc->write_tree);
-
+	list_add_tail(&io->list, &cc->write_thread_list);
 	wake_up_locked(&cc->write_thread_wait);
 	spin_unlock_irqrestore(&cc->write_thread_wait.lock, flags);
 }
@@ -1357,7 +1338,7 @@ static void kcryptd_async_done(struct crypto_async_request *async_req,
 	if (bio_data_dir(io->base_bio) == READ)
 		kcryptd_crypt_read_done(io);
 	else
-		kcryptd_crypt_write_io_submit(io);
+		kcryptd_crypt_write_io_submit(io, 1);
 }
 
 static void kcryptd_crypt(struct work_struct *work)
@@ -1473,15 +1454,12 @@ static int crypt_set_key(struct crypt_config *cc, char *key)
 	if (!cc->key_size && strcmp(key, "-"))
 		goto out;
 
-	/* clear the flag since following operations may invalidate previously valid key */
-	clear_bit(DM_CRYPT_KEY_VALID, &cc->flags);
-
 	if (cc->key_size && crypt_decode_key(cc->key, key, cc->key_size) < 0)
 		goto out;
 
+	set_bit(DM_CRYPT_KEY_VALID, &cc->flags);
+
 	r = crypt_setkey_allcpus(cc);
-	if (!r)
-		set_bit(DM_CRYPT_KEY_VALID, &cc->flags);
 
 out:
 	/* Hex key string not needed after here, so wipe it. */
@@ -1715,7 +1693,7 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	char dummy;
 
 	static struct dm_arg _args[] = {
-		{0, 1, "Invalid number of feature args"},
+		{0, 2, "Invalid number of feature args"},
 	};
 
 	if (argc < 5) {
@@ -1763,8 +1741,9 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	}
 
 	cc->per_bio_data_size = ti->per_bio_data_size =
-				sizeof(struct dm_crypt_io) + cc->dmreq_start +
-				sizeof(struct dm_crypt_request) + cc->iv_size;
+		ALIGN(sizeof(struct dm_crypt_io) + cc->dmreq_start +
+		      sizeof(struct dm_crypt_request) + iv_size_padding + cc->iv_size,
+		      ARCH_KMALLOC_MINALIGN);
 
 	cc->page_pool = mempool_create_page_pool(BIO_MAX_PAGES, 0);
 	if (!cc->page_pool) {
@@ -1810,15 +1789,23 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		if (ret)
 			goto bad;
 
-		opt_string = dm_shift_arg(&as);
+		while (opt_params--) {
+			opt_string = dm_shift_arg(&as);
+			if (!opt_string) {
+				ti->error = "Not enough feature arguments";
+				goto bad;
+			}
 
-		if (opt_params == 1 && opt_string &&
-		    !strcasecmp(opt_string, "allow_discards"))
-			ti->num_discard_bios = 1;
-		else if (opt_params) {
-			ret = -EINVAL;
-			ti->error = "Invalid feature arguments";
-			goto bad;
+			if (!strcasecmp(opt_string, "allow_discards"))
+				ti->num_discard_bios = 1;
+
+			else if (!strcasecmp(opt_string, "same_cpu_crypt"))
+				set_bit(DM_CRYPT_SAME_CPU, &cc->flags);
+
+			else {
+				ti->error = "Invalid feature arguments";
+				goto bad;
+			}
 		}
 	}
 
@@ -1829,15 +1816,18 @@ static int crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		goto bad;
 	}
 
-	cc->crypt_queue = alloc_workqueue("kcryptd",
-					  WQ_CPU_INTENSIVE | WQ_MEM_RECLAIM, 1);
+	if (test_bit(DM_CRYPT_SAME_CPU, &cc->flags))
+		cc->crypt_queue = alloc_workqueue("kcryptd", WQ_CPU_INTENSIVE | WQ_MEM_RECLAIM, 1);
+	else
+		cc->crypt_queue = alloc_workqueue("kcryptd", WQ_CPU_INTENSIVE | WQ_MEM_RECLAIM | WQ_UNBOUND,
+						  num_online_cpus());
 	if (!cc->crypt_queue) {
 		ti->error = "Couldn't create kcryptd queue";
 		goto bad;
 	}
 
 	init_waitqueue_head(&cc->write_thread_wait);
-	cc->write_tree = RB_ROOT;
+	INIT_LIST_HEAD(&cc->write_thread_list);
 
 	cc->write_thread = kthread_create(dmcrypt_write, cc, "dmcrypt_write");
 	if (IS_ERR(cc->write_thread)) {
@@ -1877,7 +1867,7 @@ static int crypt_map(struct dm_target *ti, struct bio *bio)
 	}
 
 	io = dm_per_bio_data(bio, cc->per_bio_data_size);
-	crypt_io_init(io, cc, bio, dm_target_offset(ti, bio->bi_sector));
+	crypt_io_init(io, cc, bio, dm_target_offset(ti, bio->bi_iter.bi_sector));
 	io->ctx.req = (struct ablkcipher_request *)(io + 1);
 
 	if (bio_data_dir(io->base_bio) == READ) {
@@ -1894,6 +1884,7 @@ static void crypt_status(struct dm_target *ti, status_type_t type,
 {
 	struct crypt_config *cc = ti->private;
 	unsigned i, sz = 0;
+	int num_feature_args = 0;
 
 	switch (type) {
 	case STATUSTYPE_INFO:
@@ -1912,8 +1903,15 @@ static void crypt_status(struct dm_target *ti, status_type_t type,
 		DMEMIT(" %llu %s %llu", (unsigned long long)cc->iv_offset,
 				cc->dev->name, (unsigned long long)cc->start);
 
-		if (ti->num_discard_bios)
-			DMEMIT(" 1 allow_discards");
+		num_feature_args += !!ti->num_discard_bios;
+		num_feature_args += test_bit(DM_CRYPT_SAME_CPU, &cc->flags);
+		if (num_feature_args) {
+			DMEMIT(" %d", num_feature_args);
+			if (ti->num_discard_bios)
+				DMEMIT(" allow_discards");
+			if (test_bit(DM_CRYPT_SAME_CPU, &cc->flags))
+				DMEMIT(" same_cpu_crypt");
+		}
 
 		break;
 	}
@@ -2010,7 +2008,7 @@ static int crypt_iterate_devices(struct dm_target *ti,
 
 static struct target_type crypt_target = {
 	.name   = "crypt",
-	.version = {1, 13, 0},
+	.version = {1, 14, 0},
 	.module = THIS_MODULE,
 	.ctr    = crypt_ctr,
 	.dtr    = crypt_dtr,
