@@ -2189,205 +2189,198 @@ static int f2fs_ioc_defragment(struct file *filp, unsigned long arg)
 	return 0;
 }
 
-static int f2fs_move_file_range(struct file *file_in, loff_t pos_in,
-			struct file *file_out, loff_t pos_out, size_t len)
+static int f2fs_defragment_range(struct f2fs_sb_info *sbi,
+					struct file *filp,
+					struct f2fs_defragment *range)
 {
-	struct inode *src = file_inode(file_in);
-	struct inode *dst = file_inode(file_out);
-	struct f2fs_sb_info *sbi = F2FS_I_SB(src);
-	size_t olen = len, dst_max_i_size = 0;
-	size_t dst_osize;
-	int ret;
-
-	if (file_in->f_path.mnt != file_out->f_path.mnt ||
-				src->i_sb != dst->i_sb)
-		return -EXDEV;
-
-	if (unlikely(f2fs_readonly(src->i_sb)))
-		return -EROFS;
-
-	if (!S_ISREG(src->i_mode) || !S_ISREG(dst->i_mode))
-		return -EINVAL;
-
-	if (f2fs_encrypted_inode(src) || f2fs_encrypted_inode(dst))
-		return -EOPNOTSUPP;
-
-	if (src == dst) {
-		if (pos_in == pos_out)
-			return 0;
-		if (pos_out > pos_in && pos_out < pos_in + len)
-			return -EINVAL;
-	}
-
-	inode_lock(src);
-	if (src != dst)
-		inode_lock(dst);
-
-	ret = -EINVAL;
-	if (pos_in + len > src->i_size || pos_in + len < pos_in)
-		goto out_unlock;
-	if (len == 0)
-		olen = len = src->i_size - pos_in;
-	if (pos_in + len == src->i_size)
-		len = ALIGN(src->i_size, F2FS_BLKSIZE) - pos_in;
-	if (len == 0) {
-		ret = 0;
-		goto out_unlock;
-	}
-
-	dst_osize = dst->i_size;
-	if (pos_out + olen > dst->i_size)
-		dst_max_i_size = pos_out + olen;
-
-	/* verify the end result is block aligned */
-	if (!IS_ALIGNED(pos_in, F2FS_BLKSIZE) ||
-			!IS_ALIGNED(pos_in + len, F2FS_BLKSIZE) ||
-			!IS_ALIGNED(pos_out, F2FS_BLKSIZE))
-		goto out_unlock;
-
-	ret = f2fs_convert_inline_inode(src);
-	if (ret)
-		goto out_unlock;
-
-	ret = f2fs_convert_inline_inode(dst);
-	if (ret)
-		goto out_unlock;
-
-	/* write out all dirty pages from offset */
-	ret = filemap_write_and_wait_range(src->i_mapping,
-					pos_in, pos_in + len);
-	if (ret)
-		goto out_unlock;
-
-	ret = filemap_write_and_wait_range(dst->i_mapping,
-					pos_out, pos_out + len);
-	if (ret)
-		goto out_unlock;
-
-	f2fs_balance_fs(sbi, true);
-	f2fs_lock_op(sbi);
-	ret = __exchange_data_block(src, dst, pos_in >> F2FS_BLKSIZE_BITS,
-				pos_out >> F2FS_BLKSIZE_BITS,
-				len >> F2FS_BLKSIZE_BITS, false);
-
-	if (!ret) {
-		if (dst_max_i_size)
-			f2fs_i_size_write(dst, dst_max_i_size);
-		else if (dst_osize != dst->i_size)
-			f2fs_i_size_write(dst, dst_osize);
-	}
-	f2fs_unlock_op(sbi);
-out_unlock:
-	if (src != dst)
-		inode_unlock(dst);
-	inode_unlock(src);
-	return ret;
-}
-
-static int f2fs_ioc_move_range(struct file *filp, unsigned long arg)
-{
-	struct f2fs_move_range range;
-	struct fd dst;
+	struct inode *inode = file_inode(filp);
+	struct f2fs_map_blocks map;
+	struct extent_info ei;
+	pgoff_t pg_start, pg_end;
+	unsigned int blk_per_seg = 1 << sbi->log_blocks_per_seg;
+	unsigned int total = 0, sec_num;
+	unsigned int pages_per_sec = sbi->segs_per_sec *
+					(1 << sbi->log_blocks_per_seg);
+	block_t blk_end = 0;
+	bool fragmented = false;
 	int err;
 
-	if (!(filp->f_mode & FMODE_READ) ||
-			!(filp->f_mode & FMODE_WRITE))
-		return -EBADF;
+	/* if in-place-update policy is enabled, don't waste time here */
+	if (need_inplace_update(inode))
+		return -EINVAL;
 
-	if (copy_from_user(&range, (struct f2fs_move_range __user *)arg,
-							sizeof(range)))
-		return -EFAULT;
+	pg_start = range->start >> PAGE_CACHE_SHIFT;
+	pg_end = (range->start + range->len) >> PAGE_CACHE_SHIFT;
 
-	dst = fdget(range.dst_fd);
-	if (!dst.file)
-		return -EBADF;
+	f2fs_balance_fs(sbi);
 
-	if (!(dst.file->f_mode & FMODE_WRITE)) {
-		err = -EBADF;
-		goto err_out;
+	mutex_lock(&inode->i_mutex);
+
+	/* writeback all dirty pages in the range */
+	err = filemap_write_and_wait_range(inode->i_mapping, range->start,
+						range->start + range->len);
+	if (err)
+		goto out;
+
+	/*
+	 * lookup mapping info in extent cache, skip defragmenting if physical
+	 * block addresses are continuous.
+	 */
+	if (f2fs_lookup_extent_cache(inode, pg_start, &ei)) {
+		if (ei.fofs + ei.len >= pg_end)
+			goto out;
 	}
 
-	err = mnt_want_write_file(filp);
-	if (err)
-		goto err_out;
+	map.m_lblk = pg_start;
+	map.m_len = pg_end - pg_start;
 
-	err = f2fs_move_file_range(filp, range.pos_in, dst.file,
-					range.pos_out, range.len);
+	/*
+	 * lookup mapping info in dnode page cache, skip defragmenting if all
+	 * physical block addresses are continuous even if there are hole(s)
+	 * in logical blocks.
+	 */
+	while (map.m_lblk < pg_end) {
+		map.m_flags = 0;
+		err = f2fs_map_blocks(inode, &map, 0, F2FS_GET_BLOCK_READ);
+		if (err)
+			goto out;
 
-	mnt_drop_write_file(filp);
-	if (err)
-		goto err_out;
+		if (!(map.m_flags & F2FS_MAP_FLAGS)) {
+			map.m_lblk++;
+			map.m_len--;
+			continue;
+		}
 
-	if (copy_to_user((struct f2fs_move_range __user *)arg,
-						&range, sizeof(range)))
-		err = -EFAULT;
-err_out:
-	fdput(dst);
+		if (blk_end && blk_end != map.m_pblk) {
+			fragmented = true;
+			break;
+		}
+		blk_end = map.m_pblk + map.m_len;
+
+		map.m_lblk += map.m_len;
+		map.m_len = pg_end - map.m_lblk;
+	}
+
+	if (!fragmented)
+		goto out;
+
+	map.m_lblk = pg_start;
+	map.m_len = pg_end - pg_start;
+
+	sec_num = (map.m_len + pages_per_sec - 1) / pages_per_sec;
+
+	/*
+	 * make sure there are enough free section for LFS allocation, this can
+	 * avoid defragment running in SSR mode when free section are allocated
+	 * intensively
+	 */
+	if (has_not_enough_free_secs(sbi, sec_num)) {
+		err = -EAGAIN;
+		goto out;
+	}
+
+	while (map.m_lblk < pg_end) {
+		pgoff_t idx;
+		int cnt = 0;
+
+do_map:
+		map.m_flags = 0;
+		err = f2fs_map_blocks(inode, &map, 0, F2FS_GET_BLOCK_READ);
+		if (err)
+			goto clear_out;
+
+		if (!(map.m_flags & F2FS_MAP_FLAGS)) {
+			map.m_lblk++;
+			continue;
+		}
+
+		set_inode_flag(F2FS_I(inode), FI_DO_DEFRAG);
+
+		idx = map.m_lblk;
+		while (idx < map.m_lblk + map.m_len && cnt < blk_per_seg) {
+			struct page *page;
+
+			page = get_lock_data_page(inode, idx, true);
+			if (IS_ERR(page)) {
+				err = PTR_ERR(page);
+				goto clear_out;
+			}
+
+			set_page_dirty(page);
+			f2fs_put_page(page, 1);
+
+			idx++;
+			cnt++;
+			total++;
+		}
+
+		map.m_lblk = idx;
+		map.m_len = pg_end - idx;
+
+		if (idx < pg_end && cnt < blk_per_seg)
+			goto do_map;
+
+		clear_inode_flag(F2FS_I(inode), FI_DO_DEFRAG);
+
+		err = filemap_fdatawrite(inode->i_mapping);
+		if (err)
+			goto out;
+	}
+clear_out:
+	clear_inode_flag(F2FS_I(inode), FI_DO_DEFRAG);
+out:
+	mutex_unlock(&inode->i_mutex);
+	if (!err)
+		range->len = (u64)total << PAGE_CACHE_SHIFT;
 	return err;
 }
 
-static int f2fs_ioc_flush_device(struct file *filp, unsigned long arg)
+static int f2fs_ioc_defragment(struct file *filp, unsigned long arg)
 {
 	struct inode *inode = file_inode(filp);
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
-	struct sit_info *sm = SIT_I(sbi);
-	unsigned int start_segno = 0, end_segno = 0;
-	unsigned int dev_start_segno = 0, dev_end_segno = 0;
-	struct f2fs_flush_device range;
-	int ret;
+	struct f2fs_defragment range;
+	int err;
 
 	if (!capable(CAP_SYS_ADMIN))
 		return -EPERM;
 
-	if (f2fs_readonly(sbi->sb))
-		return -EROFS;
-
-	if (copy_from_user(&range, (struct f2fs_flush_device __user *)arg,
-							sizeof(range)))
-		return -EFAULT;
-
-	if (sbi->s_ndevs <= 1 || sbi->s_ndevs - 1 <= range.dev_num ||
-			sbi->segs_per_sec != 1) {
-		f2fs_msg(sbi->sb, KERN_WARNING,
-			"Can't flush %u in %d for segs_per_sec %u != 1\n",
-				range.dev_num, sbi->s_ndevs,
-				sbi->segs_per_sec);
+	if (!S_ISREG(inode->i_mode))
 		return -EINVAL;
+
+	err = mnt_want_write_file(filp);
+	if (err)
+		return err;
+
+	if (f2fs_readonly(sbi->sb)) {
+		err = -EROFS;
+		goto out;
 	}
 
-	ret = mnt_want_write_file(filp);
-	if (ret)
-		return ret;
-
-	if (range.dev_num != 0)
-		dev_start_segno = GET_SEGNO(sbi, FDEV(range.dev_num).start_blk);
-	dev_end_segno = GET_SEGNO(sbi, FDEV(range.dev_num).end_blk);
-
-	start_segno = sm->last_victim[FLUSH_DEVICE];
-	if (start_segno < dev_start_segno || start_segno >= dev_end_segno)
-		start_segno = dev_start_segno;
-	end_segno = min(start_segno + range.segments, dev_end_segno);
-
-	while (start_segno < end_segno) {
-		if (!mutex_trylock(&sbi->gc_mutex)) {
-			ret = -EBUSY;
-			goto out;
-		}
-		sm->last_victim[GC_CB] = end_segno + 1;
-		sm->last_victim[GC_GREEDY] = end_segno + 1;
-		sm->last_victim[ALLOC_NEXT] = end_segno + 1;
-		ret = f2fs_gc(sbi, true, true, start_segno);
-		if (ret == -EAGAIN)
-			ret = 0;
-		else if (ret < 0)
-			break;
-		start_segno++;
+	if (copy_from_user(&range, (struct f2fs_defragment __user *)arg,
+							sizeof(range))) {
+		err = -EFAULT;
+		goto out;
 	}
+
+	/* verify alignment of offset & size */
+	if (range.start & (F2FS_BLKSIZE - 1) ||
+		range.len & (F2FS_BLKSIZE - 1)) {
+		err = -EINVAL;
+		goto out;
+	}
+
+	err = f2fs_defragment_range(sbi, filp, &range);
+	if (err < 0)
+		goto out;
+
+	if (copy_to_user((struct f2fs_defragment __user *)arg, &range,
+							sizeof(range)))
+		err = -EFAULT;
 out:
 	mnt_drop_write_file(filp);
-	return ret;
+	return err;
 }
-
 
 long f2fs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
@@ -2426,10 +2419,6 @@ long f2fs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return f2fs_ioc_write_checkpoint(filp, arg);
 	case F2FS_IOC_DEFRAGMENT:
 		return f2fs_ioc_defragment(filp, arg);
-	case F2FS_IOC_MOVE_RANGE:
-		return f2fs_ioc_move_range(filp, arg);
-	case F2FS_IOC_FLUSH_DEVICE:
-		return f2fs_ioc_flush_device(filp, arg);
 	default:
 		return -ENOTTY;
 	}

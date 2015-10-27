@@ -1786,7 +1786,11 @@ static int f2fs_write_data_pages(struct address_space *mapping,
 		goto skip_write;
 
 	/* skip writing during file defragment */
-	if (is_inode_flag_set(inode, FI_DO_DEFRAG))
+	if (is_inode_flag_set(F2FS_I(inode), FI_DO_DEFRAG))
+		goto skip_write;
+
+	/* during POR, we don't need to trigger writepage at all. */
+	if (unlikely(is_sbi_flag_set(sbi, SBI_POR_DOING)))
 		goto skip_write;
 
 	trace_f2fs_writepages(mapping->host, wbc, DATA);
