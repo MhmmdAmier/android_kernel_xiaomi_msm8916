@@ -1583,17 +1583,12 @@ out:
 	}
 
 	unlock_page(page);
-	if (!S_ISDIR(inode->i_mode))
-		f2fs_balance_fs(sbi, need_balance_fs);
-
-	if (unlikely(f2fs_cp_error(sbi))) {
-		f2fs_submit_merged_write(sbi, DATA);
-		submitted = NULL;
+	if (need_balance_fs)
+		f2fs_balance_fs(sbi);
+	if (wbc->for_reclaim) {
+		f2fs_submit_merged_bio(sbi, DATA, WRITE);
+		remove_dirty_dir_inode(inode);
 	}
-
-	if (submitted)
-		*submitted = fio.submitted;
-
 	return 0;
 
 redirty_out:
