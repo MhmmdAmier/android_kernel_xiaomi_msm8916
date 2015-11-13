@@ -368,20 +368,9 @@ static int __commit_inmem_pages(struct inode *inode,
 				inode_dec_dirty_pages(inode);
 				remove_dirty_inode(inode);
 			}
-
-			fio.page = page;
-			fio.old_blkaddr = NULL_ADDR;
-			fio.encrypted_page = NULL;
-			fio.need_lock = LOCK_DONE;
-			err = do_write_data_page(&fio);
-			if (err) {
-				unlock_page(page);
-				break;
-			}
-
-			/* record old blkaddr for revoking */
-			cur->old_addr = fio.old_blkaddr;
-			last_idx = page->index;
+		} else {
+			ClearPageUptodate(cur->page);
+			trace_f2fs_commit_inmem_page(cur->page, INMEM_DROP);
 		}
 		unlock_page(page);
 		list_move_tail(&cur->list, revoke_list);
