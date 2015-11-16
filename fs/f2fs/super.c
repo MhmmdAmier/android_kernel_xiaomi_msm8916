@@ -2170,9 +2170,16 @@ skip_recovery:
 	f2fs_update_time(sbi, REQ_TIME);
 	return 0;
 
-free_sysfs:
-	f2fs_sync_inode_meta(sbi);
-	f2fs_exit_sysfs(sbi);
+free_kobj:
+	kobject_del(&sbi->s_kobj);
+	kobject_put(&sbi->s_kobj);
+	wait_for_completion(&sbi->s_kobj_unregister);
+free_proc:
+	if (sbi->s_proc) {
+		remove_proc_entry("segment_info", sbi->s_proc);
+		remove_proc_entry(sb->s_id, f2fs_proc_root);
+	}
+	f2fs_destroy_stats(sbi);
 free_root_inode:
 	dput(sb->s_root);
 	sb->s_root = NULL;
