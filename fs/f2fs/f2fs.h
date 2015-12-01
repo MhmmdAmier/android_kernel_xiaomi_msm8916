@@ -2788,26 +2788,12 @@ void f2fs_leave_shrinker(struct f2fs_sb_info *sbi);
 /*
  * extent_cache.c
  */
-struct rb_entry *__lookup_rb_tree(struct rb_root *root,
-				struct rb_entry *cached_re, unsigned int ofs);
-struct rb_node **__lookup_rb_tree_for_insert(struct f2fs_sb_info *sbi,
-				struct rb_root *root, struct rb_node **parent,
-				unsigned int ofs);
-struct rb_entry *__lookup_rb_tree_ret(struct rb_root *root,
-		struct rb_entry *cached_re, unsigned int ofs,
-		struct rb_entry **prev_entry, struct rb_entry **next_entry,
-		struct rb_node ***insert_p, struct rb_node **insert_parent,
-		bool force);
-bool __check_rb_tree_consistence(struct f2fs_sb_info *sbi,
-						struct rb_root *root);
-unsigned int f2fs_shrink_extent_tree(struct f2fs_sb_info *sbi, int nr_shrink);
-bool f2fs_init_extent_tree(struct inode *inode, struct f2fs_extent *i_ext);
-void f2fs_drop_extent_tree(struct inode *inode);
-unsigned int f2fs_destroy_extent_node(struct inode *inode);
-void f2fs_destroy_extent_tree(struct inode *inode);
-bool f2fs_lookup_extent_cache(struct inode *inode, pgoff_t pgofs,
-			struct extent_info *ei);
-void f2fs_update_extent_cache(struct dnode_of_data *dn);
+unsigned int f2fs_shrink_extent_tree(struct f2fs_sb_info *, int);
+void f2fs_init_extent_tree(struct inode *, struct f2fs_extent *);
+unsigned int f2fs_destroy_extent_node(struct inode *);
+void f2fs_destroy_extent_tree(struct inode *);
+bool f2fs_lookup_extent_cache(struct inode *, pgoff_t, struct extent_info *);
+void f2fs_update_extent_cache(struct dnode_of_data *);
 void f2fs_update_extent_cache_range(struct dnode_of_data *dn,
 			pgoff_t fofs, block_t blkaddr, unsigned int len);
 void init_extent_cache_info(struct f2fs_sb_info *sbi);
