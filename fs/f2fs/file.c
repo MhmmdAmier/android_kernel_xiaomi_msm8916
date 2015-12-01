@@ -743,15 +743,15 @@ int f2fs_setattr(struct dentry *dentry, struct iattr *attr)
 			 */
 			down_write(&F2FS_I(inode)->i_mmap_sem);
 			truncate_setsize(inode, attr->ia_size);
-			up_write(&F2FS_I(inode)->i_mmap_sem);
 
 			/* should convert inline inode here */
-			if (!f2fs_may_inline_data(inode)) {
+			if (f2fs_has_inline_data(inode) &&
+					!f2fs_may_inline_data(inode)) {
 				err = f2fs_convert_inline_inode(inode);
 				if (err)
 					return err;
 			}
-			inode->i_mtime = inode->i_ctime = current_time(inode);
+			inode->i_mtime = inode->i_ctime = CURRENT_TIME;
 		}
 
 		size_changed = true;
