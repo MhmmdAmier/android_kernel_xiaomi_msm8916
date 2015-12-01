@@ -889,9 +889,8 @@ static int f2fs_readdir(struct file *file, void *dirent, filldir_t filldir)
 
 		make_dentry_ptr_block(inode, &d, dentry_blk);
 
-		err = f2fs_fill_dentries(file, dirent, filldir, &d, n,
-							bit_pos, &fstr);
-		if (err) {
+		if (f2fs_fill_dentries(file, dirent, filldir, &d, n,
+							bit_pos, &fstr)) {
 			kunmap(dentry_page);
 			f2fs_put_page(dentry_page, 1);
 			break;
