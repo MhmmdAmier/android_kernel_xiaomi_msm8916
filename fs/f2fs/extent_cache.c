@@ -668,8 +668,10 @@ free_node:
 
 		list_del_init(&en->list);
 		spin_unlock(&sbi->extent_lock);
-
-		__detach_extent_node(sbi, et, en);
+			if (write_trylock(&et->lock)) {
+				node_cnt += __free_extent_tree(sbi, et, false);
+				write_unlock(&et->lock);
+			}
 
 		write_unlock(&et->lock);
 		node_cnt++;
