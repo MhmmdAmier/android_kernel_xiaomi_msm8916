@@ -198,8 +198,33 @@ static void recover_inode(struct inode *inode, struct page *page)
 			ino_of_node(page), name);
 }
 
-static int find_fsync_dnodes(struct f2fs_sb_info *sbi, struct list_head *head,
-				bool check_only)
+static bool is_same_inode(struct inode *inode, struct page *ipage)
+{
+	struct f2fs_inode *ri = F2FS_INODE(ipage);
+	struct timespec disk;
+
+	if (!IS_INODE(ipage))
+		return true;
+
+	disk.tv_sec = le64_to_cpu(ri->i_ctime);
+	disk.tv_nsec = le32_to_cpu(ri->i_ctime_nsec);
+	if (timespec_compare(&inode->i_ctime, &disk) > 0)
+		return false;
+
+	disk.tv_sec = le64_to_cpu(ri->i_atime);
+	disk.tv_nsec = le32_to_cpu(ri->i_atime_nsec);
+	if (timespec_compare(&inode->i_atime, &disk) > 0)
+		return false;
+
+	disk.tv_sec = le64_to_cpu(ri->i_mtime);
+	disk.tv_nsec = le32_to_cpu(ri->i_mtime_nsec);
+	if (timespec_compare(&inode->i_mtime, &disk) > 0)
+		return false;
+
+	return true;
+}
+
+static int find_fsync_dnodes(struct f2fs_sb_info *sbi, struct list_head *head)
 {
 	struct curseg_info *curseg;
 	struct page *page = NULL;
@@ -225,9 +250,11 @@ static int find_fsync_dnodes(struct f2fs_sb_info *sbi, struct list_head *head,
 			goto next;
 
 		entry = get_fsync_inode(head, ino_of_node(page));
-		if (!entry) {
-			if (!check_only &&
-					IS_INODE(page) && is_dent_dnode(page)) {
+		if (entry) {
+			if (!is_same_inode(entry->inode, page))
+				goto next;
+		} else {
+			if (IS_INODE(page) && is_dent_dnode(page)) {
 				err = recover_inode_page(sbi, page);
 				if (err)
 					break;
