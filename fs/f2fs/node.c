@@ -1162,39 +1162,22 @@ repeat:
 		f2fs_put_page(page, 1);
 		return ERR_PTR(err);
 	} else if (err == LOCKED_PAGE) {
-		err = 0;
 		goto page_hit;
 	}
 
-	if (parent)
-		ra_node_pages(parent, start + 1, MAX_RA_NODE);
-
 	lock_page(page);
 
+	if (unlikely(!PageUptodate(page))) {
+		f2fs_put_page(page, 1);
+		return ERR_PTR(-EIO);
+	}
 	if (unlikely(page->mapping != NODE_MAPPING(sbi))) {
 		f2fs_put_page(page, 1);
 		goto repeat;
 	}
-
-	if (unlikely(!PageUptodate(page))) {
-		err = -EIO;
-		goto out_err;
-	}
 page_hit:
 	mark_page_accessed(page);
-
-	if(unlikely(nid != nid_of_node(page))) {
-		f2fs_msg(sbi->sb, KERN_WARNING, "inconsistent node block, "
-			"nid:%lu, node_footer[nid:%u,ino:%u,ofs:%u,cpver:%llu,blkaddr:%u]",
-			nid, nid_of_node(page), ino_of_node(page),
-			ofs_of_node(page), cpver_of_node(page),
-			next_blkaddr_of_node(page));
-		ClearPageUptodate(page);
-		err = -EINVAL;
-out_err:
-		f2fs_put_page(page, 1);
-		return ERR_PTR(err);
-	}
+	f2fs_bug_on(sbi, nid != nid_of_node(page));
 	return page;
 }
 
@@ -1232,23 +1215,32 @@ static void flush_inline_data(struct f2fs_sb_info *sbi, nid_t ino)
 	if (!PageUptodate(page))
 		goto page_out;
 
-	if (!PageDirty(page))
-		goto page_out;
+	/* Then, try readahead for siblings of the desired node */
+	end = start + MAX_RA_NODE;
+	end = min(end, NIDS_PER_BLOCK);
+	for (i = start + 1; i < end; i++) {
+		nid_t tnid = get_nid(parent, i, false);
+		if (!tnid)
+			continue;
+		ra_node_page(sbi, tnid);
+	}
 
 	if (!clear_page_dirty_for_io(page))
 		goto page_out;
 
-	ret = f2fs_write_inline_data(inode, page);
-	inode_dec_dirty_pages(inode);
-	remove_dirty_inode(inode);
-	if (ret)
-		set_page_dirty(page);
-page_out:
-	unlock_page(page);
-release_out:
-	f2fs_put_page(page, 0);
-iput_out:
-	iput(inode);
+	lock_page(page);
+	if (unlikely(!PageUptodate(page))) {
+		f2fs_put_page(page, 1);
+		return ERR_PTR(-EIO);
+	}
+	if (unlikely(page->mapping != NODE_MAPPING(sbi))) {
+		f2fs_put_page(page, 1);
+		goto repeat;
+	}
+page_hit:
+	mark_page_accessed(page);
+	f2fs_bug_on(sbi, nid != nid_of_node(page));
+	return page;
 }
 
 void move_node_page(struct page *node_page, int gc_type)
