@@ -60,8 +60,6 @@
 
 #define VERSION_LEN	256
 #define MAX_VOLUME_NAME		512
-#define MAX_PATH_LEN		64
-#define MAX_DEVICES		8
 
 /*
  * For superblock
