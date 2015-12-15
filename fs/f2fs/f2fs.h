@@ -979,13 +979,7 @@ struct f2fs_sb_info {
 	struct proc_dir_entry *s_proc;		/* proc entry */
 	struct f2fs_super_block *raw_super;	/* raw super block pointer */
 	int valid_super_block;			/* valid super block no */
-	unsigned long s_flag;				/* flags for sbi */
-
-#ifdef CONFIG_BLK_DEV_ZONED
-	unsigned int blocks_per_blkz;		/* F2FS blocks per zone */
-	unsigned int log_blocks_per_blkz;	/* log2 F2FS blocks per zone */
-#endif
-
+	int s_flag;				/* flags for sbi */
 	/* for node-related operations */
 	struct f2fs_nm_info *nm_info;		/* node manager */
 	struct inode *node_inode;		/* cache node blocks */
