@@ -608,14 +608,9 @@ struct f2fs_inode_info {
 	unsigned int clevel;		/* maximum level of given file name */
 	struct task_struct *task;	/* lookup and create consistency */
 	nid_t i_xattr_nid;		/* node id that contains xattrs */
-	loff_t	last_disk_size;		/* lastly written file size */
+	unsigned long long xattr_ver;	/* cp version of xattr modification */
 
-#ifdef CONFIG_QUOTA
-	/* quota space reservation, managed internally by quota code */
-	qsize_t i_reserved_quota;
-#endif
-	struct list_head dirty_list;	/* dirty list for dirs and files */
-	struct list_head gdirty_list;	/* linked in global dirty list */
+	struct list_head dirty_list;	/* linked in global dirty list */
 	struct list_head inmem_pages;	/* inmemory pages managed by f2fs */
 	struct mutex inmem_lock;	/* lock for inmemory pages */
 	struct extent_tree *extent_tree;	/* cached extent_tree entry */

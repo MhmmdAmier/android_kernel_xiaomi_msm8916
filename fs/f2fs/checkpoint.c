@@ -811,56 +811,56 @@ fail_no_cp:
 	return -EINVAL;
 }
 
-static void __add_dirty_inode(struct inode *inode, enum inode_type type)
+static void __add_dirty_inode(struct inode *inode)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
-	int flag = (type == DIR_INODE) ? FI_DIRTY_DIR : FI_DIRTY_FILE;
+	struct f2fs_inode_info *fi = F2FS_I(inode);
 
-	if (is_inode_flag_set(inode, flag))
+	if (is_inode_flag_set(fi, FI_DIRTY_DIR))
 		return;
 
-	set_inode_flag(inode, flag);
-	if (!f2fs_is_volatile_file(inode))
-		list_add_tail(&F2FS_I(inode)->dirty_list,
-						&sbi->inode_list[type]);
-	stat_inc_dirty_inode(sbi, type);
-}
-
-static void __remove_dirty_inode(struct inode *inode, enum inode_type type)
-{
-	int flag = (type == DIR_INODE) ? FI_DIRTY_DIR : FI_DIRTY_FILE;
-
-	if (get_dirty_pages(inode) || !is_inode_flag_set(inode, flag))
-		return;
-
-	list_del_init(&F2FS_I(inode)->dirty_list);
-	clear_inode_flag(inode, flag);
-	stat_dec_dirty_inode(F2FS_I_SB(inode), type);
+	set_inode_flag(fi, FI_DIRTY_DIR);
+	list_add_tail(&fi->dirty_list, &sbi->dir_inode_list);
+	stat_inc_dirty_dir(sbi);
+	return;
 }
 
 void update_dirty_page(struct inode *inode, struct page *page)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
-	enum inode_type type = S_ISDIR(inode->i_mode) ? DIR_INODE : FILE_INODE;
 
 	if (!S_ISDIR(inode->i_mode) && !S_ISREG(inode->i_mode) &&
 			!S_ISLNK(inode->i_mode))
 		return;
 
-	spin_lock(&sbi->inode_lock[type]);
-	if (type != FILE_INODE || test_opt(sbi, DATA_FLUSH))
-		__add_dirty_inode(inode, type);
+	if (!S_ISDIR(inode->i_mode)) {
+		inode_inc_dirty_pages(inode);
+		goto out;
+	}
+
+	spin_lock(&sbi->dir_inode_lock);
+	__add_dirty_inode(inode);
 	inode_inc_dirty_pages(inode);
 	spin_unlock(&sbi->inode_lock[type]);
 
+out:
 	SetPagePrivate(page);
 	f2fs_trace_pid(page);
 }
 
-void remove_dirty_inode(struct inode *inode)
+void add_dirty_dir_inode(struct inode *inode)
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
-	enum inode_type type = S_ISDIR(inode->i_mode) ? DIR_INODE : FILE_INODE;
+
+	spin_lock(&sbi->dir_inode_lock);
+	__add_dirty_inode(inode);
+	spin_unlock(&sbi->dir_inode_lock);
+}
+
+void remove_dirty_dir_inode(struct inode *inode)
+{
+	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
+	struct f2fs_inode_info *fi = F2FS_I(inode);
 
 	if (!S_ISDIR(inode->i_mode) && !S_ISREG(inode->i_mode) &&
 			!S_ISLNK(inode->i_mode))
@@ -869,9 +869,16 @@ void remove_dirty_inode(struct inode *inode)
 	if (type == FILE_INODE && !test_opt(sbi, DATA_FLUSH))
 		return;
 
-	spin_lock(&sbi->inode_lock[type]);
-	__remove_dirty_inode(inode, type);
-	spin_unlock(&sbi->inode_lock[type]);
+	list_del_init(&fi->dirty_list);
+	clear_inode_flag(fi, FI_DIRTY_DIR);
+	stat_dec_dirty_dir(sbi);
+	spin_unlock(&sbi->dir_inode_lock);
+
+	/* Only from the recovery routine */
+	if (is_inode_flag_set(fi, FI_DELAY_IPUT)) {
+		clear_inode_flag(fi, FI_DELAY_IPUT);
+		iput(inode);
+	}
 }
 
 int sync_dirty_inodes(struct f2fs_sb_info *sbi, enum inode_type type)
@@ -879,12 +886,6 @@ int sync_dirty_inodes(struct f2fs_sb_info *sbi, enum inode_type type)
 	struct list_head *head;
 	struct inode *inode;
 	struct f2fs_inode_info *fi;
-	bool is_dir = (type == DIR_INODE);
-	unsigned long ino = 0;
-
-	trace_f2fs_sync_dirty_inodes_enter(sbi->sb, is_dir,
-				get_pages(sbi, is_dir ?
-				F2FS_DIRTY_DENTS : F2FS_DIRTY_DATA));
 retry:
 	if (unlikely(f2fs_cp_error(sbi)))
 		return -EIO;
@@ -899,9 +900,9 @@ retry:
 				F2FS_DIRTY_DENTS : F2FS_DIRTY_DATA));
 		return 0;
 	}
-	fi = list_first_entry(head, struct f2fs_inode_info, dirty_list);
+	fi = list_entry(head->next, struct f2fs_inode_info, dirty_list);
 	inode = igrab(&fi->vfs_inode);
-	spin_unlock(&sbi->inode_lock[type]);
+	spin_unlock(&sbi->dir_inode_lock);
 	if (inode) {
 		unsigned long cur_ino = inode->i_ino;
 
