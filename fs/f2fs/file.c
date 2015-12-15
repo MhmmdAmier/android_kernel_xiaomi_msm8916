@@ -282,13 +282,11 @@ sync_nodes:
 
 	/* once recovery info is written, don't need to tack this */
 	remove_ino_entry(sbi, ino, APPEND_INO);
-	clear_inode_flag(inode, FI_APPEND_WRITE);
+	clear_inode_flag(fi, FI_APPEND_WRITE);
 flush_out:
 	remove_ino_entry(sbi, ino, UPDATE_INO);
-	clear_inode_flag(inode, FI_UPDATE_WRITE);
-	if (!atomic)
-		ret = f2fs_issue_flush(sbi);
-	f2fs_update_time(sbi, REQ_TIME);
+	clear_inode_flag(fi, FI_UPDATE_WRITE);
+	ret = f2fs_issue_flush(sbi);
 out:
 	trace_f2fs_sync_file_exit(inode, need_cp, datasync, ret);
 	f2fs_trace_ios(NULL, 1);

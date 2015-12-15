@@ -469,7 +469,7 @@ bool exist_written_data(struct f2fs_sb_info *sbi, nid_t ino, int mode)
 	return e ? true : false;
 }
 
-void release_ino_entry(struct f2fs_sb_info *sbi, bool all)
+void release_ino_entry(struct f2fs_sb_info *sbi)
 {
 	struct ino_entry *e, *tmp;
 	int i;
@@ -1255,7 +1255,15 @@ static int do_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 	/* wait for previous submitted meta pages writeback */
 	wait_on_all_pages_writeback(sbi);
 
-	release_ino_entry(sbi, false);
+	/*
+	 * invalidate meta page which is used temporarily for zeroing out
+	 * block at the end of warm node chain.
+	 */
+	if (invalidate)
+		invalidate_mapping_pages(META_MAPPING(sbi), discard_blk,
+								discard_blk);
+
+	release_ino_entry(sbi);
 
 	if (unlikely(f2fs_cp_error(sbi)))
 		return -EIO;
