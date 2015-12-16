@@ -101,11 +101,6 @@ enum {
 	Opt_noextent_cache,
 	Opt_noinline_data,
 	Opt_data_flush,
-	Opt_mode,
-	Opt_io_size_bits,
-	Opt_fault_injection,
-	Opt_usrquota,
-	Opt_grpquota,
 	Opt_err,
 };
 
@@ -136,11 +131,6 @@ static match_table_t f2fs_tokens = {
 	{Opt_noextent_cache, "noextent_cache"},
 	{Opt_noinline_data, "noinline_data"},
 	{Opt_data_flush, "data_flush"},
-	{Opt_mode, "mode=%s"},
-	{Opt_io_size_bits, "io_bits=%u"},
-	{Opt_fault_injection, "fault_injection=%u"},
-	{Opt_usrquota, "usrquota"},
-	{Opt_grpquota, "grpquota"},
 	{Opt_err, NULL},
 };
 
@@ -328,66 +318,6 @@ static int parse_options(struct super_block *sb, char *options)
 		case Opt_data_flush:
 			set_opt(sbi, DATA_FLUSH);
 			break;
-		case Opt_mode:
-			name = match_strdup(&args[0]);
-
-			if (!name)
-				return -ENOMEM;
-			if (strlen(name) == 8 &&
-					!strncmp(name, "adaptive", 8)) {
-				if (f2fs_sb_mounted_blkzoned(sb)) {
-					f2fs_msg(sb, KERN_WARNING,
-						 "adaptive mode is not allowed with "
-						 "zoned block device feature");
-					kfree(name);
-					return -EINVAL;
-				}
-				set_opt_mode(sbi, F2FS_MOUNT_ADAPTIVE);
-			} else if (strlen(name) == 3 &&
-					!strncmp(name, "lfs", 3)) {
-				set_opt_mode(sbi, F2FS_MOUNT_LFS);
-			} else {
-				kfree(name);
-				return -EINVAL;
-			}
-			kfree(name);
-			break;
-		case Opt_io_size_bits:
-			if (args->from && match_int(args, &arg))
-				return -EINVAL;
-			if (arg > __ilog2_u32(BIO_MAX_PAGES)) {
-				f2fs_msg(sb, KERN_WARNING,
-					"Not support %d, larger than %d",
-					1 << arg, BIO_MAX_PAGES);
-				return -EINVAL;
-			}
-			sbi->write_io_size_bits = arg;
-			break;
-		case Opt_fault_injection:
-			if (args->from && match_int(args, &arg))
-				return -EINVAL;
-#ifdef CONFIG_F2FS_FAULT_INJECTION
-			f2fs_build_fault_attr(sbi, arg);
-			set_opt(sbi, FAULT_INJECTION);
-#else
-			f2fs_msg(sb, KERN_INFO,
-				"FAULT_INJECTION was not selected");
-#endif
-			break;
-#ifdef CONFIG_QUOTA
-		case Opt_usrquota:
-			set_opt(sbi, USRQUOTA);
-			break;
-		case Opt_grpquota:
-			set_opt(sbi, GRPQUOTA);
-			break;
-#else
-		case Opt_usrquota:
-		case Opt_grpquota:
-			f2fs_msg(sb, KERN_INFO,
-					"quota operations not supported");
-			break;
-#endif
 		default:
 			f2fs_msg(sb, KERN_ERR,
 				"Unrecognized mount option \"%s\" or missing value",
@@ -771,12 +701,6 @@ static int f2fs_show_options(struct seq_file *seq, struct dentry *root)
 		seq_puts(seq, ",noextent_cache");
 	if (test_opt(sbi, DATA_FLUSH))
 		seq_puts(seq, ",data_flush");
-
-	seq_puts(seq, ",mode=");
-	if (test_opt(sbi, ADAPTIVE))
-		seq_puts(seq, "adaptive");
-	else if (test_opt(sbi, LFS))
-		seq_puts(seq, "lfs");
 	seq_printf(seq, ",active_logs=%u", sbi->active_logs);
 	if (F2FS_IO_SIZE_BITS(sbi))
 		seq_printf(seq, ",io_size=%uKB", F2FS_IO_SIZE_KB(sbi));
