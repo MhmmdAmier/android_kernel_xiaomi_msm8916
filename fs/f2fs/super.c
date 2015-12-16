@@ -2079,8 +2079,7 @@ try_onemore:
 	sbi->total_valid_block_count =
 				le64_to_cpu(sbi->ckpt->valid_block_count);
 	sbi->last_valid_block_count = sbi->total_valid_block_count;
-	sbi->reserved_blocks = 0;
-
+	sbi->alloc_valid_block_count = 0;
 	for (i = 0; i < NR_INODE_TYPE; i++) {
 		INIT_LIST_HEAD(&sbi->inode_list[i]);
 		spin_lock_init(&sbi->inode_lock[i]);

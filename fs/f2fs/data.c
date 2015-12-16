@@ -1587,7 +1587,7 @@ out:
 		f2fs_balance_fs(sbi);
 	if (wbc->for_reclaim) {
 		f2fs_submit_merged_bio(sbi, DATA, WRITE);
-		remove_dirty_dir_inode(inode);
+		remove_dirty_inode(inode);
 	}
 	return 0;
 
@@ -1796,9 +1796,7 @@ static int f2fs_write_data_pages(struct address_space *mapping,
 	else if (atomic_read(&sbi->wb_sync_req))
 		goto skip_write;
 
-	blk_start_plug(&plug);
-	ret = f2fs_write_cache_pages(mapping, wbc);
-	blk_finish_plug(&plug);
+	remove_dirty_inode(inode);
 
 	if (wbc->sync_mode == WB_SYNC_ALL)
 		atomic_dec(&sbi->wb_sync_req);

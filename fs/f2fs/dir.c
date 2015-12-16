@@ -432,6 +432,12 @@ put_error:
 	clear_nlink(inode);
 	update_inode(inode, page);
 	f2fs_put_page(page, 1);
+error:
+	/* once the failed inode becomes a bad inode, i_mode is S_IFREG */
+	truncate_inode_pages(&inode->i_data, 0);
+	truncate_blocks(inode, 0, false);
+	remove_dirty_inode(inode);
+	remove_inode_page(inode);
 	return ERR_PTR(err);
 }
 

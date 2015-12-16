@@ -950,6 +950,12 @@ enum inode_type {
 	NR_INODE_TYPE,
 };
 
+enum inode_type {
+	DIR_INODE,			/* for dirty dir inode */
+	FILE_INODE,			/* for dirty regular/symlink inode */
+	NR_INODE_TYPE,
+};
+
 /* for inner inode cache management */
 struct inode_management {
 	struct radix_tree_root ino_root;	/* ino entry array */
@@ -1934,6 +1940,7 @@ enum {
 	FI_DATA_EXIST,		/* indicate data exists */
 	FI_INLINE_DOTS,		/* indicate inline dot dentries */
 	FI_DO_DEFRAG,		/* indicate defragment is running */
+	FI_DIRTY_FILE,		/* indicate regular/symlink has dirty pages */
 };
 
 static inline void __mark_inode_dirty_flag(struct inode *inode,
@@ -2486,8 +2493,8 @@ int recover_orphan_inodes(struct f2fs_sb_info *);
 int get_valid_checkpoint(struct f2fs_sb_info *);
 void update_dirty_page(struct inode *, struct page *);
 void add_dirty_dir_inode(struct inode *);
-void remove_dirty_dir_inode(struct inode *);
-void sync_dirty_dir_inodes(struct f2fs_sb_info *);
+void remove_dirty_inode(struct inode *);
+void sync_dirty_inodes(struct f2fs_sb_info *, enum inode_type);
 void write_checkpoint(struct f2fs_sb_info *, struct cp_control *);
 void init_ino_entry_info(struct f2fs_sb_info *);
 int __init create_checkpoint_caches(void);
