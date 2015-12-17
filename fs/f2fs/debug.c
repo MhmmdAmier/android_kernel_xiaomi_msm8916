@@ -45,10 +45,8 @@ static void update_general_status(struct f2fs_sb_info *sbi)
 	si->ndirty_dent = get_pages(sbi, F2FS_DIRTY_DENTS);
 	si->ndirty_meta = get_pages(sbi, F2FS_DIRTY_META);
 	si->ndirty_data = get_pages(sbi, F2FS_DIRTY_DATA);
-	si->ndirty_imeta = get_pages(sbi, F2FS_DIRTY_IMETA);
 	si->ndirty_dirs = sbi->ndirty_inode[DIR_INODE];
 	si->ndirty_files = sbi->ndirty_inode[FILE_INODE];
-	si->ndirty_all = sbi->ndirty_inode[DIRTY_META];
 	si->inmem_pages = get_pages(sbi, F2FS_INMEM_PAGES);
 	si->aw_cnt = atomic_read(&sbi->aw_cnt);
 	si->vw_cnt = atomic_read(&sbi->vw_cnt);
@@ -363,8 +361,8 @@ static int stat_show(struct seq_file *s, void *v)
 			   si->vw_cnt, si->max_vw_cnt);
 		seq_printf(s, "  - nodes: %4d in %4d\n",
 			   si->ndirty_node, si->node_pages);
-		seq_printf(s, "  - dents: %4d in dirs:%4d (%4d)\n",
-			   si->ndirty_dent, si->ndirty_dirs, si->ndirty_all);
+		seq_printf(s, "  - dents: %4d in dirs:%4d\n",
+			   si->ndirty_dent, si->ndirty_dirs);
 		seq_printf(s, "  - datas: %4d in files:%4d\n",
 			   si->ndirty_data, si->ndirty_files);
 		seq_printf(s, "  - meta: %4d in %4d\n",
