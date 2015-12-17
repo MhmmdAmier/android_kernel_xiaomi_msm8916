@@ -853,13 +853,9 @@ int f2fs_map_blocks(struct inode *inode, struct f2fs_map_blocks *map,
 	int mode = create ? ALLOC_NODE : LOOKUP_NODE;
 	pgoff_t pgofs, end_offset, end;
 	int err = 0, ofs = 1;
-	unsigned int ofs_in_node, last_ofs_in_node;
-	blkcnt_t prealloc;
-	struct extent_info ei = {0,0,0};
+	struct extent_info ei;
+	bool allocated = false;
 	block_t blkaddr;
-
-	if (!maxblocks)
-		return 0;
 
 	map->m_len = 0;
 	map->m_flags = 0;
@@ -962,9 +958,15 @@ skip:
 	dn.ofs_in_node++;
 	pgofs++;
 
-	/* preallocate blocks in batch for one dnode page */
-	if (flag == F2FS_GET_BLOCK_PRE_AIO &&
-			(pgofs == end || dn.ofs_in_node == end_offset)) {
+get_next:
+	if (map->m_len >= maxblocks)
+		goto sync_out;
+
+	if (dn.ofs_in_node >= end_offset) {
+		if (allocated)
+			sync_inode_page(&dn);
+		allocated = false;
+		f2fs_put_dnode(&dn);
 
 		dn.ofs_in_node = ofs_in_node;
 		err = reserve_new_blocks(&dn, prealloc);
@@ -979,18 +981,42 @@ skip:
 		dn.ofs_in_node = end_offset;
 	}
 
-	if (pgofs >= end)
-		goto sync_out;
-	else if (dn.ofs_in_node < end_offset)
-		goto next_block;
+	blkaddr = datablock_addr(dn.node_page, dn.ofs_in_node);
 
-	f2fs_put_dnode(&dn);
-
-	if (create) {
-		__do_map_lock(sbi, flag, false);
-		f2fs_balance_fs(sbi, dn.node_changed);
+	if (blkaddr == NEW_ADDR || blkaddr == NULL_ADDR) {
+		if (create) {
+			if (unlikely(f2fs_cp_error(sbi))) {
+				err = -EIO;
+				goto sync_out;
+			}
+			err = __allocate_data_block(&dn);
+			if (err)
+				goto sync_out;
+			allocated = true;
+			map->m_flags |= F2FS_MAP_NEW;
+			blkaddr = dn.data_blkaddr;
+		} else {
+			/*
+			 * we only merge preallocated unwritten blocks
+			 * for fiemap.
+			 */
+			if (flag != F2FS_GET_BLOCK_FIEMAP ||
+					blkaddr != NEW_ADDR)
+				goto sync_out;
+		}
 	}
-	goto next_dnode;
+
+	/* Give more consecutive addresses for the readahead */
+	if ((map->m_pblk != NEW_ADDR &&
+			blkaddr == (map->m_pblk + ofs)) ||
+			(map->m_pblk == NEW_ADDR &&
+			blkaddr == NEW_ADDR)) {
+		ofs++;
+		dn.ofs_in_node++;
+		pgofs++;
+		map->m_len++;
+		goto get_next;
+	}
 
 sync_out:
 	f2fs_put_dnode(&dn);
