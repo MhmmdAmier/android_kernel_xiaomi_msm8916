@@ -263,6 +263,8 @@ static struct extent_tree *__grab_extent_tree(struct inode *inode)
 		atomic_set(&et->refcount, 0);
 		et->count = 0;
 		atomic_inc(&sbi->total_ext_tree);
+	} else {
+		atomic_dec(&sbi->total_zombie_tree);
 	}
 	mutex_unlock(&sbi->extent_tree_lock);
 
@@ -611,6 +613,7 @@ unsigned int f2fs_shrink_extent_tree(struct f2fs_sb_info *sbi, int nr_shrink)
 	struct extent_node *en;
 	unsigned int node_cnt = 0, tree_cnt = 0;
 	int remained;
+	bool do_free = false;
 
 	if (!test_opt(sbi, EXTENT_CACHE))
 		return 0;
@@ -618,7 +621,7 @@ unsigned int f2fs_shrink_extent_tree(struct f2fs_sb_info *sbi, int nr_shrink)
 	if (!atomic_read(&sbi->total_zombie_tree))
 		goto free_node;
 
-	if (!mutex_trylock(&sbi->extent_tree_lock))
+	if (!down_write_trylock(&sbi->extent_tree_lock))
 		goto out;
 
 	/* 1. remove unreferenced extent tree */
@@ -638,6 +641,7 @@ unsigned int f2fs_shrink_extent_tree(struct f2fs_sb_info *sbi, int nr_shrink)
 				radix_tree_delete(root, et->ino);
 				kmem_cache_free(extent_tree_slab, et);
 				atomic_dec(&sbi->total_ext_tree);
+				atomic_dec(&sbi->total_zombie_tree);
 				tree_cnt++;
 
 				if (node_cnt + tree_cnt >= nr_shrink)
@@ -669,14 +673,26 @@ free_node:
 	for (; remained > 0; remained--) {
 		if (list_empty(&sbi->extent_list))
 			break;
-		en = list_first_entry(&sbi->extent_list,
-					struct extent_node, list);
-		et = en->et;
-		if (!write_trylock(&et->lock)) {
-			/* refresh this extent node's position in extent list */
-			list_move_tail(&en->list, &sbi->extent_list);
-			continue;
-		}
+		list_del_init(&en->list);
+		do_free = true;
+	}
+	spin_unlock(&sbi->extent_lock);
+
+	if (do_free == false)
+		goto unlock_out;
+
+	/*
+	 * reset ino for searching victims from beginning of global extent tree.
+	 */
+	ino = F2FS_ROOT_INO(sbi);
+
+	while ((found = radix_tree_gang_lookup(root,
+				(void **)treevec, ino, EXT_TREE_VEC_SIZE))) {
+		unsigned i;
+
+		ino = treevec[found - 1]->ino + 1;
+		for (i = 0; i < found; i++) {
+			struct extent_tree *et = treevec[i];
 
 		list_del_init(&en->list);
 		spin_unlock(&sbi->extent_lock);
@@ -737,12 +753,9 @@ void f2fs_destroy_extent_tree(struct inode *inode)
 	if (!et)
 		return;
 
-	if (inode->i_nlink && !is_bad_inode(inode) &&
-					atomic_read(&et->node_cnt)) {
-		mutex_lock(&sbi->extent_tree_lock);
-		list_add_tail(&et->list, &sbi->zombie_list);
+	if (inode->i_nlink && !is_bad_inode(inode) && et->count) {
+		atomic_dec(&et->refcount);
 		atomic_inc(&sbi->total_zombie_tree);
-		mutex_unlock(&sbi->extent_tree_lock);
 		return;
 	}
 
@@ -806,6 +819,7 @@ void init_extent_cache_info(struct f2fs_sb_info *sbi)
 	INIT_LIST_HEAD(&sbi->extent_list);
 	spin_lock_init(&sbi->extent_lock);
 	atomic_set(&sbi->total_ext_tree, 0);
+	atomic_set(&sbi->total_zombie_tree, 0);
 	atomic_set(&sbi->total_ext_node, 0);
 }
 
