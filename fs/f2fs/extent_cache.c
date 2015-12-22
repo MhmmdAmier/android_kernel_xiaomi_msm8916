@@ -260,12 +260,9 @@ static struct extent_tree *__grab_extent_tree(struct inode *inode)
 		et->root = RB_ROOT;
 		et->cached_en = NULL;
 		rwlock_init(&et->lock);
-		INIT_LIST_HEAD(&et->list);
-		atomic_set(&et->node_cnt, 0);
+		atomic_set(&et->refcount, 0);
+		et->count = 0;
 		atomic_inc(&sbi->total_ext_tree);
-	} else {
-		atomic_dec(&sbi->total_zombie_tree);
-		list_del_init(&et->list);
 	}
 	mutex_unlock(&sbi->extent_tree_lock);
 
@@ -625,11 +622,27 @@ unsigned int f2fs_shrink_extent_tree(struct f2fs_sb_info *sbi, int nr_shrink)
 		goto out;
 
 	/* 1. remove unreferenced extent tree */
-	list_for_each_entry_safe(et, next, &sbi->zombie_list, list) {
-		if (atomic_read(&et->node_cnt)) {
-			write_lock(&et->lock);
-			node_cnt += __free_extent_tree(sbi, et);
-			write_unlock(&et->lock);
+	while ((found = radix_tree_gang_lookup(root,
+				(void **)treevec, ino, EXT_TREE_VEC_SIZE))) {
+		unsigned i;
+
+		ino = treevec[found - 1]->ino + 1;
+		for (i = 0; i < found; i++) {
+			struct extent_tree *et = treevec[i];
+
+			if (!atomic_read(&et->refcount)) {
+				write_lock(&et->lock);
+				node_cnt += __free_extent_tree(sbi, et, true);
+				write_unlock(&et->lock);
+
+				radix_tree_delete(root, et->ino);
+				kmem_cache_free(extent_tree_slab, et);
+				atomic_dec(&sbi->total_ext_tree);
+				tree_cnt++;
+
+				if (node_cnt + tree_cnt >= nr_shrink)
+					goto unlock_out;
+			}
 		}
 		f2fs_bug_on(sbi, atomic_read(&et->node_cnt));
 		list_del_init(&et->list);
@@ -742,7 +755,7 @@ void f2fs_destroy_extent_tree(struct inode *inode)
 	radix_tree_delete(&sbi->extent_tree_root, inode->i_ino);
 	kmem_cache_free(extent_tree_slab, et);
 	atomic_dec(&sbi->total_ext_tree);
-	mutex_unlock(&sbi->extent_tree_lock);
+	up_write(&sbi->extent_tree_lock);
 
 	F2FS_I(inode)->extent_tree = NULL;
 
@@ -793,8 +806,6 @@ void init_extent_cache_info(struct f2fs_sb_info *sbi)
 	INIT_LIST_HEAD(&sbi->extent_list);
 	spin_lock_init(&sbi->extent_lock);
 	atomic_set(&sbi->total_ext_tree, 0);
-	INIT_LIST_HEAD(&sbi->zombie_list);
-	atomic_set(&sbi->total_zombie_tree, 0);
 	atomic_set(&sbi->total_ext_node, 0);
 }
 
