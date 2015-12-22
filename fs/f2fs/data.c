@@ -2116,6 +2116,14 @@ static ssize_t f2fs_direct_IO(int rw, struct kiocb *iocb,
 	size_t count = iov_length(iov, nr_segs);
 	int err;
 
+	/* we don't need to use inline_data strictly */
+	err = f2fs_convert_inline_inode(inode);
+	if (err)
+		return err;
+
+	if (f2fs_encrypted_inode(inode) && S_ISREG(inode->i_mode))
+		return 0;
+
 	err = check_direct_IO(inode, rw, iov, offset, nr_segs);
 	if (err)
 		return err;

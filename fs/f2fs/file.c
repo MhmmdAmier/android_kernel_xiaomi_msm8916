@@ -449,6 +449,12 @@ static int f2fs_file_mmap(struct file *file, struct vm_area_struct *vma)
 	struct inode *inode = file_inode(file);
 	int err;
 
+	if (f2fs_encrypted_inode(inode)) {
+		err = f2fs_get_encryption_info(inode);
+		if (err)
+			return 0;
+	}
+
 	/* we don't need to use inline_data strictly */
 	err = f2fs_convert_inline_inode(inode);
 	if (err)
@@ -743,8 +749,7 @@ int f2fs_setattr(struct dentry *dentry, struct iattr *attr)
 			truncate_setsize(inode, attr->ia_size);
 
 			/* should convert inline inode here */
-			if (f2fs_has_inline_data(inode) &&
-					!f2fs_may_inline_data(inode)) {
+			if (!f2fs_may_inline_data(inode)) {
 				err = f2fs_convert_inline_inode(inode);
 				if (err)
 					return err;
@@ -1125,6 +1130,8 @@ static int f2fs_collapse_range(struct inode *inode, loff_t offset, loff_t len)
 	if (offset & (F2FS_BLKSIZE - 1) || len & (F2FS_BLKSIZE - 1))
 		return -EINVAL;
 
+	f2fs_balance_fs(F2FS_I_SB(inode));
+
 	ret = f2fs_convert_inline_inode(inode);
 	if (ret)
 		return ret;
@@ -1216,6 +1223,8 @@ static int f2fs_zero_range(struct inode *inode, loff_t offset, loff_t len,
 	ret = inode_newsize_ok(inode, (len + offset));
 	if (ret)
 		return ret;
+
+	f2fs_balance_fs(sbi);
 
 	ret = f2fs_convert_inline_inode(inode);
 	if (ret)
@@ -1324,7 +1333,9 @@ static int f2fs_insert_range(struct inode *inode, loff_t offset, loff_t len)
 	if (ret)
 		return ret;
 
-	f2fs_balance_fs(sbi, true);
+	ret = f2fs_convert_inline_inode(inode);
+	if (ret)
+		return ret;
 
 	down_write(&F2FS_I(inode)->i_mmap_sem);
 	ret = truncate_blocks(inode, i_size_read(inode), true);
@@ -1386,7 +1397,9 @@ static int expand_inode_data(struct inode *inode, loff_t offset,
 	if (err)
 		return err;
 
-	f2fs_balance_fs(sbi, true);
+	ret = f2fs_convert_inline_inode(inode);
+	if (ret)
+		return ret;
 
 	pg_end = ((unsigned long long)offset + len) >> PAGE_SHIFT;
 	off_end = (offset + len) & (PAGE_SIZE - 1);

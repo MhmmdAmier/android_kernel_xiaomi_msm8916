@@ -168,7 +168,7 @@ int f2fs_convert_inline_inode(struct inode *inode)
 	if (!f2fs_has_inline_data(inode))
 		return 0;
 
-	page = f2fs_grab_cache_page(inode->i_mapping, 0, false);
+	page = grab_cache_page(inode->i_mapping, 0);
 	if (!page)
 		return -ENOMEM;
 
