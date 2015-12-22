@@ -480,11 +480,11 @@ void set_data_blkaddr(struct dnode_of_data *dn)
 		dn->node_changed = true;
 }
 
-void f2fs_update_data_blkaddr(struct dnode_of_data *dn, block_t blkaddr)
-{
-	dn->data_blkaddr = blkaddr;
-	set_data_blkaddr(dn);
-	f2fs_update_extent_cache(dn);
+	/* Get physical address of data block */
+	addr_array = blkaddr_in_node(rn);
+	addr_array[ofs_in_node] = cpu_to_le32(dn->data_blkaddr);
+	set_page_dirty(node_page);
+	dn->node_changed = true;
 }
 
 /* dn->ofs_in_node will be returned with up-to-date last block pointer */

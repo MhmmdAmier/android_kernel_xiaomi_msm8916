@@ -744,8 +744,6 @@ struct dnode_of_data {
 	unsigned int ofs_in_node;	/* data offset in the node page */
 	bool inode_page_locked;		/* inode page is locked or not */
 	bool node_changed;		/* is node block changed */
-	char cur_level;			/* level of hole node page */
-	char max_level;			/* level of current page located */
 	block_t	data_blkaddr;		/* block address of the node block */
 };
 
