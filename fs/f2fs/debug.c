@@ -39,6 +39,7 @@ static void update_general_status(struct f2fs_sb_info *sbi)
 	si->hit_total = si->hit_largest + si->hit_cached + si->hit_rbtree;
 	si->total_ext = atomic64_read(&sbi->total_hit_ext);
 	si->ext_tree = atomic_read(&sbi->total_ext_tree);
+	si->zombie_tree = atomic_read(&sbi->total_zombie_tree);
 	si->ext_node = atomic_read(&sbi->total_ext_node);
 	si->ndirty_node = get_pages(sbi, F2FS_DIRTY_NODES);
 	si->ndirty_dent = get_pages(sbi, F2FS_DIRTY_DENTS);
