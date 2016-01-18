@@ -31,6 +31,9 @@
 /* control total # of nats */
 #define DEF_NAT_CACHE_THRESHOLD			100000
 
+/* control dirty nats ratio threshold (default: 10% over max nid count) */
+#define DEF_DIRTY_NAT_RATIO_THRESHOLD		10
+
 /* vector size for gang look-up from nat cache that consists of radix tree */
 #define NATVEC_SIZE	64
 #define SETVEC_SIZE	32
@@ -126,12 +129,7 @@ static inline void raw_nat_from_node_info(struct f2fs_nat_entry *raw_ne,
 static inline bool excess_dirty_nats(struct f2fs_sb_info *sbi)
 {
 	return NM_I(sbi)->dirty_nat_cnt >= NM_I(sbi)->max_nid *
-					NM_I(sbi)->dirty_nats_ratio / 100;
-}
-
-static inline bool excess_cached_nats(struct f2fs_sb_info *sbi)
-{
-	return NM_I(sbi)->nat_cnt >= DEF_NAT_CACHE_THRESHOLD;
+					DEF_DIRTY_NAT_RATIO_THRESHOLD / 100;
 }
 
 enum mem_type {
