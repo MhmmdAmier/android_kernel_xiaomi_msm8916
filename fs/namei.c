@@ -425,12 +425,6 @@ int __inode_permission(struct inode *inode, int mask)
 {
 	return __inode_permission2(NULL, inode, mask);
 }
-EXPORT_SYMBOL(__inode_permission2);
-
-int __inode_permission(struct inode *inode, int mask)
-{
-	return __inode_permission2(NULL, inode, mask);
-}
 EXPORT_SYMBOL(__inode_permission);
 
 /**
@@ -3476,12 +3470,7 @@ int vfs_mknod2(struct vfsmount *mnt, struct inode *dir, struct dentry *dentry, u
 
 	return 0;
 }
-EXPORT_SYMBOL(vfs_mknod2);
 
-int vfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
-{
-	return vfs_mknod2(NULL, dir, dentry, mode, dev);
-}
 EXPORT_SYMBOL(vfs_mknod2);
 
 int vfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
