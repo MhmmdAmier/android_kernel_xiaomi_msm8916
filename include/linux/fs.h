@@ -1492,14 +1492,15 @@ extern int vfs_mkdir2(struct vfsmount *, struct inode *, struct dentry *, umode_
 extern int vfs_mknod(struct inode *, struct dentry *, umode_t, dev_t);
 extern int vfs_mknod2(struct vfsmount *, struct inode *, struct dentry *, umode_t, dev_t);
 extern int vfs_symlink(struct inode *, struct dentry *, const char *);
-extern int vfs_link(struct dentry *, struct inode *, struct dentry *);
-extern int vfs_link2(struct vfsmount *, struct dentry *, struct inode *, struct dentry *);
+extern int vfs_symlink2(struct vfsmount *, struct inode *, struct dentry *, const char *);
+extern int vfs_link(struct dentry *, struct inode *, struct dentry *, struct inode **);
+extern int vfs_link2(struct vfsmount *, struct dentry *, struct inode *, struct dentry *, struct inode **);
 extern int vfs_rmdir(struct inode *, struct dentry *);
 extern int vfs_rmdir2(struct vfsmount *, struct inode *, struct dentry *);
-extern int vfs_unlink(struct inode *, struct dentry *);
-extern int vfs_unlink2(struct vfsmount *, struct inode *, struct dentry *);
+extern int vfs_unlink(struct inode *, struct dentry *, struct inode **);
+extern int vfs_unlink2(struct vfsmount *, struct inode *, struct dentry *, struct inode **);
 extern int vfs_rename(struct inode *, struct dentry *, struct inode *, struct dentry *, struct inode **, unsigned int);
-extern int vfs_rename2(struct vfsmount *, struct inode *, struct dentry *, struct inode *, struct dentry *);
+extern int vfs_rename2(struct vfsmount *, struct inode *, struct dentry *, struct inode *, struct dentry *, struct inode **, unsigned int);
 extern int vfs_whiteout(struct inode *, struct dentry *);
 
 /*
@@ -2374,6 +2375,8 @@ extern int notify_change(struct dentry *, struct iattr *);
 extern int notify_change2(struct vfsmount *, struct dentry *, struct iattr *);
 extern int inode_permission(struct inode *, int);
 extern int inode_permission2(struct vfsmount *, struct inode *, int);
+extern int __inode_permission(struct inode *, int);
+extern int __inode_permission2(struct vfsmount *, struct inode *, int);
 extern int generic_permission(struct inode *, int);
 extern int __check_sticky(struct inode *dir, struct inode *inode);
 
