@@ -208,7 +208,6 @@ struct f2fs_extent {
 #define F2FS_INLINE_DENTRY	0x04	/* file inline dentry flag */
 #define F2FS_DATA_EXIST		0x08	/* file inline data exist flag */
 #define F2FS_INLINE_DOTS	0x10	/* file having implicit dot dentries */
-#define F2FS_EXTRA_ATTR		0x20	/* file having extra attribute */
 
 struct f2fs_inode {
 	__le16 i_mode;			/* file mode */
