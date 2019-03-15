@@ -134,6 +134,12 @@ struct blk_plug;
  * if only because they are not used by them anyway.
  */
 #define CLONE_KERNEL	(CLONE_FS | CLONE_FILES | CLONE_SIGHAND)
+static inline void sched_set_io_is_busy(int val) {};
+static inline void sched_get_cpus_busy(unsigned long *busy, const struct cpumask *query_cpus) {};
+static inline int sched_set_window(u64 window_start, unsigned int window_size)
+{
+	return -EINVAL;
+}
 
 /*
  * These are the constant used to fake the fixed-point load-average
