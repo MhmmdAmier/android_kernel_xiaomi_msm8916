@@ -1480,6 +1480,7 @@ int jbd2_journal_forget (handle_t *handle, struct buffer_head *bh)
 		 * buffer, but also the buffer can be checkpointed only
 		 * after the new transaction commits. */
 
+
 		set_buffer_freed(bh);
 
 		if (!jh->b_next_transaction) {
