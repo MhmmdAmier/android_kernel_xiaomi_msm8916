@@ -118,7 +118,8 @@ $(obj)/config_data.gz: $(KCONFIG_CONFIG) FORCE
 targets += config_data.h
 $(obj)/config_data.h: $(obj)/config_data.gz FORCE
 	$(call filechk,ikconfiggz)
-
+	
+ifeq ($(CONFIG_MODULE_SIG),y)
 #
 # Pull the signing certificate and any extra certificates into the kernel
 #
