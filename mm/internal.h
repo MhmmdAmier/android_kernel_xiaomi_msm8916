@@ -90,7 +90,8 @@ extern unsigned long highest_memmap_pfn;
  */
 extern int isolate_lru_page(struct page *page);
 extern void putback_lru_page(struct page *page);
-extern bool zone_reclaimable(struct zone *zone);
+extern unsigned long zone_reclaimable_pages(struct zone *zone);
+
 
 /*
  * in mm/rmap.c:
