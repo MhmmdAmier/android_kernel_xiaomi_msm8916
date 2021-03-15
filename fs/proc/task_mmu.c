@@ -1239,6 +1239,8 @@ cont:
 		rp->nr_to_reclaim = 0;
 
 	if (rp->nr_to_reclaim && (addr != end))
+	reclaim_pages_from_list(&page_list);
+	if (addr != end)
 		goto cont;
 
 	cond_resched();
