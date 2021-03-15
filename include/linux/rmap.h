@@ -193,8 +193,7 @@ int page_referenced_one(struct page *, struct vm_area_struct *,
 
 #define TTU_ACTION(x) ((x) & TTU_ACTION_MASK)
 
-int try_to_unmap(struct page *, enum ttu_flags flags,
-			struct vm_area_struct *vma);
+int try_to_unmap(struct page *, enum ttu_flags flags);
 int try_to_unmap_one(struct page *, struct vm_area_struct *,
 			unsigned long address, enum ttu_flags flags);
 
