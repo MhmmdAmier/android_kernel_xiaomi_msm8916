@@ -1243,11 +1243,6 @@ out:
 	return ret;
 }
 
-struct migration_arg {
-	struct task_struct *task;
-	int dest_cpu;
-};
-
 early_param("sched_enable_hmp", set_sched_enable_hmp);
 
 static int __init set_sched_enable_power_aware(char *str)
