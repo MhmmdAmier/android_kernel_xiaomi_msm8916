@@ -513,7 +513,7 @@ static void mem_cgroup_put(struct mem_cgroup *memcg);
 static inline
 struct mem_cgroup *mem_cgroup_from_css(struct cgroup_subsys_state *s)
 {
-	return s ? container_of(s, struct mem_cgroup, css) : NULL;
+	return container_of(s, struct mem_cgroup, css);
 }
 
 /* Some nice accessors for the vmpressure. */

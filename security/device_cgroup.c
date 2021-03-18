@@ -55,7 +55,7 @@ struct dev_cgroup {
 
 static inline struct dev_cgroup *css_to_devcgroup(struct cgroup_subsys_state *s)
 {
-	return s ? container_of(s, struct dev_cgroup, css) : NULL;
+	return container_of(s, struct dev_cgroup, css);
 }
 
 static inline struct dev_cgroup *cgroup_to_devcgroup(struct cgroup *cgroup)
