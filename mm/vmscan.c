@@ -1185,7 +1185,7 @@ unsigned long reclaim_pages_from_list(struct list_head *page_list)
 	while (!list_empty(&ret_pages)) {
 		page = lru_to_page(&ret_pages);
 		list_del(&page->lru);
-		dec_node_page_state(page, NR_ISOLATED_ANON +
+		dec_zone_page_state(page, NR_ISOLATED_ANON +
 				page_is_file_cache(page));
 		putback_lru_page(page);
 	}
