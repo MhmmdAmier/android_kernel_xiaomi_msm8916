@@ -3146,14 +3146,6 @@ css_next_descendant_post(struct cgroup_subsys_state *pos,
 	if (pos == root)
 		return NULL;
 
-	/* if we visited @root, we're done */
-	if (pos == root)
-		return NULL;
-
-	/* if we visited @root, we're done */
-	if (pos == root)
-		return NULL;
-
 	/* if there's an unvisited sibling, visit its leftmost descendant */
 	next = css_next_child(pos, css_parent(pos));
 	if (next)
