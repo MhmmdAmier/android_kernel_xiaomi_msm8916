@@ -534,8 +534,6 @@ enum res_type {
  */
 static DEFINE_MUTEX(memcg_create_mutex);
 
-static void mem_cgroup_put(struct mem_cgroup *memcg);
-
 struct mem_cgroup *mem_cgroup_from_css(struct cgroup_subsys_state *s)
 {
 	return s ? container_of(s, struct mem_cgroup, css) : NULL;
