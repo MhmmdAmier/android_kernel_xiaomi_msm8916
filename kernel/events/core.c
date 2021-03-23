@@ -6945,7 +6945,7 @@ perf_event_alloc(struct perf_event_attr *attr, int cpu,
 	 * See perf_output_read().
 	 */
 	if (attr->inherit && (attr->sample_type & PERF_SAMPLE_READ))
-		goto done;
+		goto err_ns;
 
 	pmu = perf_init_event(event);
 	if (!pmu)
