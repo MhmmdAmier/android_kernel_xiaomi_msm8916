@@ -2442,45 +2442,6 @@ static int cgroup_task_count(const struct cgroup *cgrp)
 	return count;
 }
 
-/*
- * To reduce the fork() overhead for systems that are not actually using
- * their cgroups capability, we don't maintain the lists running through
- * each css_set to its tasks until we see the list actually used - in other
- * words after the first call to css_task_iter_start().
- */
-static void cgroup_enable_task_cg_lists(void)
-{
-	struct task_struct *p, *g;
-	write_lock(&css_set_lock);
-	use_task_css_set_links = 1;
-	/*
-	 * We need tasklist_lock because RCU is not safe against
-	 * while_each_thread(). Besides, a forking task that has passed
-	 * cgroup_post_fork() without seeing use_task_css_set_links = 1
-	 * is not guaranteed to have its child immediately visible in the
-	 * tasklist if we walk through it with RCU.
-	 */
-	read_lock(&tasklist_lock);
-	do_each_thread(g, p) {
-		task_lock(p);
-		/*
-		 * We should check if the process is exiting, otherwise
-		 * it will race with cgroup_exit() in that the list
-		 * entry won't be deleted though the process has exited.
-		 * Do it while holding siglock so that we don't end up
-		 * racing against cgroup_exit().
-		 */
-		spin_lock_irq(&p->sighand->siglock);
-		if (!(p->flags & PF_EXITING) && list_empty(&p->cg_list))
-			list_add(&p->cg_list, &task_css_set(p)->tasks);
-		spin_unlock_irq(&p->sighand->siglock);
-
-		task_unlock(p);
-	} while_each_thread(g, p);
-	read_unlock(&tasklist_lock);
-	write_unlock(&css_set_lock);
-}
-
 /**
  * css_next_child - find the next child of a given css
  * @pos_css: the current position (%NULL to initiate traversal)
