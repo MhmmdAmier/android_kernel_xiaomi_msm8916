@@ -1125,7 +1125,7 @@ static netdev_tx_t vxlan_xmit_one(struct sk_buff *skb, struct net_device *dev,
 	iph->daddr	= dst;
 	iph->saddr	= fl4.saddr;
 	iph->ttl	= ttl ? : ip4_dst_hoplimit(&rt->dst);
-	__ip_select_ident(iph, skb_shinfo(skb)->gso_segs ?: 1);
+	tunnel_ip_select_ident(skb, old_iph, &rt->dst);
 
 	nf_reset(skb);
 
