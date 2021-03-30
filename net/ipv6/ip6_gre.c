@@ -1252,8 +1252,7 @@ static void ip6gre_tunnel_setup(struct net_device *dev)
 static int ip6gre_tunnel_init(struct net_device *dev)
 {
 	struct ip6_tnl *tunnel;
-	int i;
-	
+
 	tunnel = netdev_priv(dev);
 
 	tunnel->dev = dev;
@@ -1268,12 +1267,6 @@ static int ip6gre_tunnel_init(struct net_device *dev)
 	dev->tstats = alloc_percpu(struct pcpu_tstats);
 	if (!dev->tstats)
 		return -ENOMEM;
-
-	for_each_possible_cpu(i) {
-		struct pcpu_tstats *ip6gre_tunnel_stats;
-		ip6gre_tunnel_stats = per_cpu_ptr(dev->tstats, i);
-		u64_stats_init(&ip6gre_tunnel_stats->syncp);
-	}
 
 	dev->iflink = tunnel->parms.link;
 
@@ -1455,7 +1448,6 @@ static void ip6gre_netlink_parms(struct nlattr *data[],
 static int ip6gre_tap_init(struct net_device *dev)
 {
 	struct ip6_tnl *tunnel;
-	int i;
 
 	tunnel = netdev_priv(dev);
 
@@ -1467,12 +1459,6 @@ static int ip6gre_tap_init(struct net_device *dev)
 	dev->tstats = alloc_percpu(struct pcpu_tstats);
 	if (!dev->tstats)
 		return -ENOMEM;
-
-	for_each_possible_cpu(i) {
-		struct pcpu_tstats *ip6gre_tap_stats;
-		ip6gre_tap_stats = per_cpu_ptr(dev->tstats, i);
-		u64_stats_init(&ip6gre_tap_stats->syncp);
-	}
 
 	dev->iflink = tunnel->parms.link;
 

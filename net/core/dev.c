@@ -2554,6 +2554,21 @@ netdev_features_t netif_skb_dev_features(struct sk_buff *skb,
 }
 EXPORT_SYMBOL(netif_skb_dev_features);
 
+/*
+ * Returns true if either:
+ *	1. skb has frag_list and the device doesn't support FRAGLIST, or
+ *	2. skb is fragmented and the device does not support SG.
+ */
+static inline int skb_needs_linearize(struct sk_buff *skb,
+				      netdev_features_t features)
+{
+	return skb_is_nonlinear(skb) &&
+			((skb_has_frag_list(skb) &&
+				!(features & NETIF_F_FRAGLIST)) ||
+			(skb_shinfo(skb)->nr_frags &&
+				!(features & NETIF_F_SG)));
+}
+
 int dev_hard_start_xmit(struct sk_buff *skb, struct net_device *dev,
 			struct netdev_queue *txq)
 {
@@ -2775,7 +2790,7 @@ static void skb_update_prio(struct sk_buff *skb)
 #endif
 
 static DEFINE_PER_CPU(int, xmit_recursion);
-#define RECURSION_LIMIT 8
+#define RECURSION_LIMIT 10
 
 /**
  *	dev_loopback_xmit - loop back @skb
@@ -5493,13 +5508,6 @@ int register_netdevice(struct net_device *dev)
 	if (ret) {
 		rollback_registered(dev);
 		dev->reg_state = NETREG_UNREGISTERED;
-		/* We should put the kobject that hold in
-		 * netdev_unregister_kobject(), otherwise
-		 * the net device cannot be freed when
-		 * driver calls free_netdev(), because the
-		 * kobject is being hold.
-		 */
-		kobject_put(&dev->dev.kobj);
 	}
 	/*
 	 *	Prevent userspace races by waiting until the network

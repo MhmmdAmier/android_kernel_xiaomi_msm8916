@@ -73,8 +73,6 @@
 
 #define SO_SELECT_ERR_QUEUE	0x4026
 
-#define SO_MAX_PACING_RATE	0x4027
-
 #define SO_LL			0x4027
 
-#endif /* _ASM_SOCKET_H */
+#endif /* _UAPI_ASM_SOCKET_H */

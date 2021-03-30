@@ -738,7 +738,6 @@ static void tcp_update_pacing_rate(struct sock *sk)
 		do_div(rate, tp->srtt);
 
 	sk->sk_pacing_rate = min_t(u64, rate, ~0U);
-	sk->sk_pacing_rate = min_t(u64, rate, sk->sk_max_pacing_rate);
 }
 
 /* Calculate rto without backoff.  This is the second half of Van Jacobson's
@@ -3218,30 +3217,6 @@ static inline bool tcp_may_update_window(const struct tcp_sock *tp,
 		(ack_seq == tp->snd_wl1 && nwin > tp->snd_wnd);
 }
 
-/* If we update tp->snd_una, also update tp->bytes_acked */
-static void tcp_snd_una_update(struct tcp_sock *tp, u32 ack)
-{
-	u32 delta = ack - tp->snd_una;
-	
-	
-	u64_stats_update_begin(&tp->syncp);
-	tp->bytes_acked += delta;
-	u64_stats_update_end(&tp->syncp);
-	tp->snd_una = ack;
-}
-
-/* If we update tp->rcv_nxt, also update tp->bytes_received */
-static void tcp_rcv_nxt_update(struct tcp_sock *tp, u32 seq)
-{
-	u32 delta = seq - tp->rcv_nxt;
-
-	u64_stats_update_begin(&tp->syncp);
-	tp->bytes_received += delta;
-	u64_stats_update_end(&tp->syncp);
-	tp->rcv_nxt = seq;
-}
-
-
 /* Update our send window.
  *
  * Window update algorithm, described in RFC793/RFC1122 (used in linux-2.2
@@ -3277,7 +3252,7 @@ static int tcp_ack_update_window(struct sock *sk, const struct sk_buff *skb, u32
 		}
 	}
 
-	tcp_snd_una_update(tp, ack);
+	tp->snd_una = ack;
 
 	return flag;
 }
@@ -3412,7 +3387,7 @@ static int tcp_ack(struct sock *sk, const struct sk_buff *skb, int flag)
 		 * Note, we use the fact that SND.UNA>=SND.WL2.
 		 */
 		tcp_update_wl(tp, ack_seq);
-		tcp_snd_una_update(tp, ack);
+		tp->snd_una = ack;
 		flag |= FLAG_WIN_UPDATE;
 
 		tcp_ca_event(sk, CA_EVENT_FAST_ACK);
@@ -4089,7 +4064,7 @@ static void tcp_ofo_queue(struct sock *sk)
 
 		__skb_unlink(skb, &tp->out_of_order_queue);
 		__skb_queue_tail(&sk->sk_receive_queue, skb);
-		tcp_rcv_nxt_update(tp, TCP_SKB_CB(skb)->end_seq);
+		tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
 		if (tcp_hdr(skb)->fin)
 			tcp_fin(sk);
 	}
@@ -4293,7 +4268,7 @@ static int __must_check tcp_queue_rcv(struct sock *sk, struct sk_buff *skb, int 
 	__skb_pull(skb, hdrlen);
 	eaten = (tail &&
 		 tcp_try_coalesce(sk, tail, skb, fragstolen)) ? 1 : 0;
-	tcp_rcv_nxt_update(tcp_sk(sk), TCP_SKB_CB(skb)->end_seq);
+	tcp_sk(sk)->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
 	if (!eaten) {
 		__skb_queue_tail(&sk->sk_receive_queue, skb);
 		skb_set_owner_r(skb, sk);
@@ -4392,7 +4367,7 @@ queue_and_out:
 
 			eaten = tcp_queue_rcv(sk, skb, 0, &fragstolen);
 		}
-		tcp_rcv_nxt_update(tp, TCP_SKB_CB(skb)->end_seq);
+		tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
 		if (skb->len)
 			tcp_event_data_recv(sk, skb);
 		if (th->fin)
@@ -5251,7 +5226,7 @@ void tcp_rcv_established(struct sock *sk, struct sk_buff *skb,
 					tcp_rcv_rtt_measure_ts(sk, skb);
 
 					__skb_pull(skb, tcp_header_len);
-					tcp_rcv_nxt_update(tp, TCP_SKB_CB(skb)->end_seq);
+					tp->rcv_nxt = TCP_SKB_CB(skb)->end_seq;
 					NET_INC_STATS_BH(sock_net(sk), LINUX_MIB_TCPHPHITSTOUSER);
 				}
 				if (copied_early)
