@@ -910,7 +910,6 @@ TRACE_EVENT(sched_get_nr_running_avg,
 	TP_printk("avg=%d big_avg=%d iowait_avg=%d",
 		__entry->avg, __entry->big_avg, __entry->iowait_avg)
 );
-#endif /* CONFIG_DETECT_HUNG_TASK */
 
 DECLARE_EVENT_CLASS(sched_move_task_template,
 
