@@ -1478,8 +1478,9 @@ static inline u64 steal_ticks(u64 steal)
 
 static inline void add_nr_running(struct rq *rq, unsigned count)
 {
-	sched_update_nr_prod(cpu_of(rq), 1, true);
 	unsigned prev_nr = rq->nr_running;
+	
+	sched_update_nr_prod(cpu_of(rq), count, true);
 
 	rq->nr_running = prev_nr + count;
 
@@ -1496,7 +1497,7 @@ static inline void add_nr_running(struct rq *rq, unsigned count)
 
 static inline void sub_nr_running(struct rq *rq, unsigned count)
 {
-	sched_update_nr_prod(cpu_of(rq), 1, false);
+	sched_update_nr_prod(cpu_of(rq), count, false);
 	rq->nr_running -= count;
 }
 
