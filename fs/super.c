@@ -80,8 +80,6 @@ static unsigned long super_cache_scan(struct shrinker *shrink,
 
 	total_objects = sb->s_nr_dentry_unused +
 			sb->s_nr_inodes_unused + fs_objects + 1;
-	if (!total_objects)
-		total_objects = 1;
 
 	/* proportion the scan between the caches */
 	dentries = mult_frac(sc->nr_to_scan, sb->s_nr_dentry_unused,
