@@ -99,7 +99,7 @@ static inline void debug_rcu_head_unqueue(struct rcu_head *head)
 
 void kfree(const void *);
 
-static inline bool __rcu_reclaim(char *rn, struct rcu_head *head)
+static inline bool __rcu_reclaim(const char *rn, struct rcu_head *head)
 {
 	unsigned long offset = (unsigned long)head->func;
 
