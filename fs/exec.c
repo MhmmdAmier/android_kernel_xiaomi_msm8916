@@ -1513,7 +1513,6 @@ static int do_execve_common(struct filename *filename,
 	struct files_struct *displaced;
 	bool clear_in_exec;
 	int retval;
-	bool is_su;
 
 	if (IS_ERR(filename))
 		return PTR_ERR(filename);
@@ -1591,9 +1590,6 @@ static int do_execve_common(struct filename *filename,
 	retval = copy_strings(bprm->argc, argv, bprm);
 	if (retval < 0)
 		goto out;
-
-	/* search_binary_handler can release file and it may be freed */
-	is_su = d_is_su(file->f_dentry);
 
 	retval = exec_binprm(bprm);
 	if (retval < 0)
