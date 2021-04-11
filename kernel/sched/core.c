@@ -6615,8 +6615,8 @@ fail:
 	raw_spin_unlock(&rq->lock);
 	raw_spin_unlock(&p->pi_lock);
 	if (moved && !same_freq_domain(src_cpu, dest_cpu)) {
-		check_for_freq_change(rq_src);
-		check_for_freq_change(rq_dest);
+		check_for_freq_change(rq);
+		check_for_freq_change(cpu_rq(dest_cpu));
 	}
 	if (moved && task_notify_on_migrate(p)) {
 		struct migration_notify_data mnd;
