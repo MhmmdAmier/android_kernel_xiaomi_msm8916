@@ -1376,26 +1376,11 @@ static __read_mostly unsigned int sched_io_is_busy;
 
 #endif	/* CONFIG_SCHED_FREQ_INPUT */
 
-/*
- * copy of sysctl_sched_window_stats_policy. Required for atomically
- * changing policy (see sched_window_stats_policy_update_handler() for details).
- *
- * Initialize both to same value!!
- */
-static __read_mostly unsigned int sched_window_stats_policy =
-	 WINDOW_STATS_USE_AVG;
-
 /* 1 -> use PELT based load stats, 0 -> use window-based load stats */
 unsigned int __read_mostly sched_use_pelt;
 
 unsigned int max_possible_efficiency = 1024;
 unsigned int min_possible_efficiency = 1024;
-
-/*
- * Force-issue notification to governor if we waited long enough since sending
- * last notification and did not see any freq change.
- */
-__read_mostly unsigned int sysctl_sched_gov_response_time = 10000000;
 
 /*
  * Maximum possible frequency across all cpus. Task demand and cpu
@@ -1417,18 +1402,6 @@ unsigned int max_load_scale_factor = 1024; /* max possible load scale factor */
 unsigned int max_possible_capacity = 1024; /* max(rq->max_possible_capacity) */
 unsigned int min_max_possible_capacity = 1024; /* min(max_possible_capacity) */
 unsigned int min_max_capacity_delta_pct;
-
-/* Window size (in ns) */
-__read_mostly unsigned int sched_ravg_window = 10000000;
-
-/* Min window size (in ns) = 10ms */
-#define MIN_SCHED_RAVG_WINDOW 10000000
-
-/* Max window size (in ns) = 1s */
-#define MAX_SCHED_RAVG_WINDOW 1000000000
-
-/* Temporarily disable window-stats activity on all cpus */
-unsigned int __read_mostly sched_disable_window_stats;
 
 /* Window size (in ns) */
 __read_mostly unsigned int sched_ravg_window = 10000000;
@@ -1855,24 +1828,6 @@ static int account_busy_for_task_demand(struct task_struct *p, int event)
 	return 1;
 }
 
-static int account_busy_for_task_demand(struct task_struct *p, int event)
-{
-	/* No need to bother updating task demand for exiting tasks
-	 * or the idle task. */
-	if (exiting_task(p) || is_idle_task(p))
-		return 0;
-
-	/* When a task is waking up it is completing a segment of non-busy
-	 * time. Likewise, if wait time is not treated as busy time, then
-	 * when a task begins to run or is migrated, it is not running and
-	 * is completing a segment of non-busy time. */
-	if (event == TASK_WAKE || (!sched_account_wait_time &&
-			 (event == PICK_NEXT_TASK || event == TASK_MIGRATE)))
-		return 0;
-
-	return 1;
-}
-
 /*
  * Called when new window is starting for a task, to record cpu usage over
  * recently concluded window(s). Normally 'samples' should be 1. It can be > 1
@@ -2279,13 +2234,13 @@ const char *sched_window_reset_reasons[] = {
 	"FREQ_ACCOUNT_WAIT_TIME_CHANGE"};
 
 /* Called with IRQs enabled */
+void reset_all_window_stats(u64 window_start, unsigned int window_size)
 {
 	int cpu;
 	unsigned long flags;
 	u64 start_ts = sched_clock();
 	int reason = WINDOW_CHANGE;
 	unsigned int old = 0, new = 0;
-	unsigned int old_window_size = sched_ravg_window;
 
 	disable_window_stats();
 
@@ -2308,13 +2263,8 @@ const char *sched_window_reset_reasons[] = {
 	for_each_possible_cpu(cpu) {
 		struct rq *rq = cpu_rq(cpu);
 
-		if (window_start) {
-			u32 mostly_idle_load = rq->mostly_idle_load;
-
+		if (window_start)
 			rq->window_start = window_start;
-			rq->mostly_idle_load = div64_u64((u64)mostly_idle_load *
-				 (u64)sched_ravg_window, (u64)old_window_size);
-		}
 #ifdef CONFIG_SCHED_FREQ_INPUT
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
 #endif
@@ -2450,10 +2400,6 @@ int sched_set_window(u64 window_start, unsigned int window_size)
 
 	/* roll back calculated window start so that it is in
 	 * the past (window stats must have a current window) */
-	while (ws > now)
-		ws -= (window_size * TICK_NSEC);
-
-	now = sched_clock();
 	while (ws > now)
 		ws -= (window_size * TICK_NSEC);
 
@@ -3178,15 +3124,6 @@ static void ttwu_activate(struct rq *rq, struct task_struct *p, int en_flags)
 		wq_worker_waking_up(p, cpu_of(rq));
 }
 
-/* Window size (in ns) */
-__read_mostly unsigned int sched_ravg_window = 10000000;
-
-/* Min window size (in ns) = 10ms */
-#define MIN_SCHED_RAVG_WINDOW 10000000
-
-/* Max window size (in ns) = 1s */
-#define MAX_SCHED_RAVG_WINDOW 1000000000
-
 /*
  * Mark the task runnable and perform wakeup-preemption.
  */
@@ -3275,7 +3212,7 @@ void sched_ttwu_pending(void)
 void scheduler_ipi(void)
 {
 	int cpu = smp_processor_id();
-
+	
 	/*
 	 * Fold TIF_NEED_RESCHED into the preempt_count; anybody setting
 	 * TIF_NEED_RESCHED remotely (for the first time) will also send
@@ -3283,8 +3220,7 @@ void scheduler_ipi(void)
 	 */
 	preempt_fold_need_resched();
 
-	if (llist_empty(&this_rq()->wake_list) && !got_nohz_idle_kick() &&
-							!got_boost_kick())
+	if (llist_empty(&this_rq()->wake_list) && !got_nohz_idle_kick())
 		return;
 
 	if (got_boost_kick()) {
@@ -3294,6 +3230,7 @@ void scheduler_ipi(void)
 			check_for_migration(rq, rq->curr);
 		clear_boost_kick(cpu);
 	}
+
 
 	/*
 	 * Not all reschedule IPI handlers call irq_enter/irq_exit, since
@@ -3561,7 +3498,6 @@ out:
 static void try_to_wake_up_local(struct task_struct *p)
 {
 	struct rq *rq = task_rq(p);
-	int long_sleep = 0;
 
 	if (rq != this_rq() || p == current) {
 		printk_deferred("%s: Failed to wakeup task %d (%s), rq = %p,"
@@ -4689,7 +4625,6 @@ need_resched:
 	if (task_on_rq_queued(prev) || rq->skip_clock_update < 0)
 		update_rq_clock(rq);
 
-	wallclock = sched_clock();
 	next = pick_next_task(rq, prev);
 	wallclock = sched_clock();
 	update_task_ravg(prev, rq, PUT_PREV_TASK, wallclock, 0);
@@ -9016,9 +8951,6 @@ void __init sched_init(void)
 		rq->rt.rt_runtime = def_rt_bandwidth.rt_runtime;
 #ifdef CONFIG_RT_GROUP_SCHED
 		init_tg_rt_entry(&root_task_group, &rq->rt, NULL, i, NULL);
-#endif
-#ifdef CONFIG_SCHED_HMP
-		rq->nr_small_tasks = rq->nr_big_tasks = 0;
 #endif
 
 		for (j = 0; j < CPU_LOAD_IDX_MAX; j++)

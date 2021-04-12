@@ -1,4 +1,3 @@
-
 #include <linux/sched.h>
 #include <linux/sched/sysctl.h>
 #include <linux/sched/rt.h>
@@ -620,8 +619,6 @@ struct rq {
 	int capacity;
 	int max_possible_capacity;
 	u64 window_start;
-	u32 mostly_idle_load;
-	int mostly_idle_nr_run;
 
 	u64 cur_irqload;
 	u64 avg_irqload;
@@ -636,11 +633,6 @@ struct rq {
 #ifdef CONFIG_SCHED_FREQ_INPUT
 	u64 curr_runnable_sum;
 	u64 prev_runnable_sum;
-#endif
-
-#ifdef CONFIG_SCHED_HMP
-	int nr_small_tasks, nr_big_tasks;
-	unsigned long hmp_flags;
 #endif
 
 #ifdef CONFIG_SCHED_HMP
@@ -944,12 +936,6 @@ dec_cumulative_runnable_avg(struct rq *rq, struct task_struct *p)
 	BUG_ON((s64)rq->cumulative_runnable_avg < 0);
 }
 
-#define pct_to_real(tunable)	\
-		(div64_u64((u64)tunable * (u64)max_task_load(), 100))
-
-#define real_to_pct(tunable)	\
-		(div64_u64((u64)tunable * (u64)100, (u64)max_task_load()))
-
 #else	/* CONFIG_SCHED_HMP */
 
 static inline int pct_task_load(struct task_struct *p) { return 0; }
@@ -985,33 +971,6 @@ static inline unsigned int nr_eligible_big_tasks(int cpu)
 }
 
 #endif	/* CONFIG_SCHED_HMP */
-
-#ifdef CONFIG_SCHED_FREQ_INPUT
-extern void check_for_freq_change(struct rq *rq);
-
-/* Is frequency of two cpus synchronized with each other? */
-static inline int same_freq_domain(int src_cpu, int dst_cpu)
-{
-	struct rq *rq = cpu_rq(src_cpu);
-
-	if (src_cpu == dst_cpu)
-		return 1;
-
-	return cpumask_test_cpu(dst_cpu, &rq->freq_domain_cpumask);
-}
-
-#else	/* CONFIG_SCHED_FREQ_INPUT */
-
-#define sched_migration_fixup	0
-
-static inline void check_for_freq_change(struct rq *rq) { }
-
-static inline int same_freq_domain(int src_cpu, int dst_cpu)
-{
-	return 1;
-}
-
-#endif	/* CONFIG_SCHED_FREQ_INPUT */
 
 #ifdef CONFIG_SCHED_FREQ_INPUT
 extern void check_for_freq_change(struct rq *rq);
@@ -1106,6 +1065,7 @@ static inline void clear_reserved(int cpu) { }
 #define trace_sched_cpu_load(...)
 
 #endif /* CONFIG_SCHED_HMP */
+
 #ifdef CONFIG_CGROUP_SCHED
 
 /*
