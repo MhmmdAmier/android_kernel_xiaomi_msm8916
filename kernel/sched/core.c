@@ -1401,7 +1401,6 @@ unsigned int min_capacity = 1024; /* min(rq->capacity) */
 unsigned int max_load_scale_factor = 1024; /* max possible load scale factor */
 unsigned int max_possible_capacity = 1024; /* max(rq->max_possible_capacity) */
 unsigned int min_max_possible_capacity = 1024; /* min(max_possible_capacity) */
-unsigned int min_max_capacity_delta_pct;
 
 /* Window size (in ns) */
 __read_mostly unsigned int sched_ravg_window = 10000000;
@@ -2499,7 +2498,6 @@ static void update_min_max_capacity(void)
 {
 	int i;
 	int max = 0, min = INT_MAX;
-	int max_pc = INT_MIN, min_pc = INT_MAX;
 	int max_lsf = 0;
 
 	for_each_possible_cpu(i) {
@@ -2510,22 +2508,12 @@ static void update_min_max_capacity(void)
 
 		if (cpu_rq(i)->load_scale_factor > max_lsf)
 			max_lsf = cpu_rq(i)->load_scale_factor;
-
-		max_pc = max(cpu_rq(i)->max_possible_capacity, max_pc);
-		if (cpu_rq(i)->max_possible_capacity > 0)
-			min_pc = min(cpu_rq(i)->max_possible_capacity, min_pc);
 	}
 
 	max_capacity = max;
 	min_capacity = min;
 	max_load_scale_factor = max_lsf;
 
-	max_possible_capacity = max_pc;
-	min_max_possible_capacity = min_pc;
-	BUG_ON(max_possible_capacity < min_max_possible_capacity);
-	min_max_capacity_delta_pct =
-	    div64_u64((u64)(max_possible_capacity - min_max_possible_capacity) *
-		      100, min_max_possible_capacity);
 }
 
 /*
