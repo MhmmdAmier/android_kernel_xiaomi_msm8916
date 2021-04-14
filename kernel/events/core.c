@@ -8402,7 +8402,6 @@ static void __perf_event_exit_context(void *__info)
 {
 	struct remove_event re = { .detach_group = true };
 	struct perf_event_context *ctx = __info;
-	struct perf_event *event;
 
 	perf_pmu_rotate_stop(ctx->pmu);
 
