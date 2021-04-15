@@ -182,6 +182,7 @@
 		VMLINUX_SYMBOL(__cpu_method_of_table_end) = .;
 #else
 #define CPU_METHOD_OF_TABLES()
+#endif
 
 #ifdef CONFIG_OF_RESERVED_MEM
 #define RESERVEDMEM_OF_TABLES()				\
