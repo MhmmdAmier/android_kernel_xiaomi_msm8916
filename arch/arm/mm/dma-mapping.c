@@ -666,17 +666,15 @@ static void *__alloc_from_contiguous(struct device *dev, size_t size,
 {
 	unsigned long order = get_order(size);
 	size_t count = size >> PAGE_SHIFT;
-	unsigned long pfn;
 	struct page *page;
 	void *ptr;
 	bool no_kernel_mapping = dma_get_attr(DMA_ATTR_NO_KERNEL_MAPPING,
 							attrs);
 
-	pfn = dma_alloc_from_contiguous(dev, count, order);
-	if (!pfn)
+	page = dma_alloc_from_contiguous(dev, count, order);
+	if (!page)
 		return NULL;
 
-	page = pfn_to_page(pfn);
 
 	/*
 	 * skip completely if we neither need to zero nor sync.
@@ -701,7 +699,7 @@ static void *__alloc_from_contiguous(struct device *dev, size_t size,
 			ptr = __dma_alloc_remap(page, size, GFP_KERNEL, prot,
 						caller);
 			if (!ptr) {
-				dma_release_from_contiguous(dev, pfn, count);
+				dma_release_from_contiguous(dev, page, count);
 				return NULL;
 			}
 		}
@@ -720,7 +718,7 @@ static void __free_from_contiguous(struct device *dev, struct page *page,
 		__dma_free_remap(cpu_addr, size, true);
 	else
 		__dma_remap(page, size, PAGE_KERNEL, false);
-	dma_release_from_contiguous(dev, page_to_pfn(page), size >> PAGE_SHIFT);
+	dma_release_from_contiguous(dev, page, size >> PAGE_SHIFT);
 }
 
 static inline pgprot_t __get_dma_pgprot(struct dma_attrs *attrs, pgprot_t prot)
@@ -1221,13 +1219,10 @@ static struct page **__iommu_alloc_buffer(struct device *dev, size_t size,
 	{
 		unsigned long order = get_order(size);
 		struct page *page;
-		unsigned long pfn;
 
-		pfn = dma_alloc_from_contiguous(dev, count, order);
-		if (!pfn)
+		page = dma_alloc_from_contiguous(dev, count, order);
+		if (!page)
 			goto error;
-
-		page = pfn_to_page(pfn);
 
 		__dma_clear_buffer(page, size, NULL);
 
@@ -1283,7 +1278,7 @@ static int __iommu_free_buffer(struct device *dev, struct page **pages,
 	int i;
 
 	if (dma_get_attr(DMA_ATTR_FORCE_CONTIGUOUS, attrs)) {
-		dma_release_from_contiguous(dev, page_to_pfn(pages[0]), count);
+		dma_release_from_contiguous(dev, pages[0], count);
 	} else {
 		for (i = 0; i < count; i++)
 			if (pages[i])
