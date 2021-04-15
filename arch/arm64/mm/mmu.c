@@ -262,26 +262,6 @@ static void __init alloc_init_pte(pmd_t *pmd, unsigned long addr,
 	} while (pte++, addr += PAGE_SIZE, addr != end);
 }
 
-#ifdef CONFIG_STRICT_MEMORY_RWX
-pmdval_t get_pmd_prot_sect_kernel(unsigned long addr)
-{
-	if (addr >= (unsigned long)__init_data_begin)
-		return prot_sect_kernel | PMD_SECT_PXN;
-	if (addr >= (unsigned long)__init_begin)
-		return prot_sect_kernel | PMD_SECT_RDONLY;
-	if (addr >= (unsigned long)__start_rodata)
-		return prot_sect_kernel | PMD_SECT_RDONLY | PMD_SECT_PXN;
-	if (addr >= (unsigned long)_stext)
-		return prot_sect_kernel | PMD_SECT_RDONLY;
-	return prot_sect_kernel | PMD_SECT_PXN;
-}
-#else
-pmdval_t get_pmd_prot_sect_kernel(unsigned long addr)
-{
-	return prot_sect_kernel;
-}
-#endif
-
 static void __init alloc_init_pmd(struct mm_struct *mm, pud_t *pud,
 				  unsigned long addr, unsigned long end,
 				  phys_addr_t phys, int map_io, bool pages)
