@@ -47,7 +47,6 @@
 #include <linux/efi.h>
 #include <linux/personality.h>
 
-#include <asm/fixmap.h>
 #include <asm/cputype.h>
 #include <asm/elf.h>
 #include <asm/cputable.h>
@@ -408,8 +407,6 @@ void __init setup_arch(char **cmdline_p)
 	init_mm.brk	   = (unsigned long) _end;
 
 	*cmdline_p = boot_command_line;
-
-	early_ioremap_init();
 
 	parse_early_param();
 
