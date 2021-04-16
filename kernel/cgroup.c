@@ -1607,7 +1607,8 @@ static int cgroup_setup_root(struct cgroup_root *root, unsigned int ss_mask)
 		goto out;
 	root_cgrp->id = ret;
 
-	ret = percpu_ref_init(&root_cgrp->self.refcnt, css_release);
+	ret = percpu_ref_init(&root_cgrp->self.refcnt, css_release, 0,
+			      GFP_KERNEL);
 	if (ret)
 		goto out;
 
@@ -2289,42 +2290,6 @@ out_release_tset:
 	return ret;
 }
 
-static int cgroup_allow_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
-{
-	struct cgroup_subsys_state *css;
-	int i;
-	int ret;
-
-	for_each_css(css, i, cgrp) {
-		if (css->ss->allow_attach) {
-			ret = css->ss->allow_attach(css, tset);
-			if (ret)
-				return ret;
-		} else {
-			return -EACCES;
-		}
-	}
-
-	return 0;
-}
-
-int subsys_cgroup_allow_attach(struct cgroup_subsys_state *css, struct cgroup_taskset *tset)
-{
-	const struct cred *cred = current_cred(), *tcred;
-	struct task_struct *task;
-
-	if (capable(CAP_SYS_NICE))
-		return 0;
-
-	cgroup_taskset_for_each(task, tset) {
-		tcred = __task_cred(task);
-
-		if (current != task && !uid_eq(cred->euid, tcred->uid) &&
-		    !uid_eq(cred->euid, tcred->suid))
-			return -EACCES;
-	}
-
-	return 0;
 /**
  * cgroup_attach_task - attach a task or a whole threadgroup to a cgroup
  * @dst_cgrp: the cgroup to attach to
@@ -2376,6 +2341,25 @@ int subsys_cgroup_allow_attach(struct cgroup_subsys_state *css, struct cgroup_ta
 		if (current != task && !uid_eq(cred->euid, tcred->uid) &&
 		    !uid_eq(cred->euid, tcred->suid))
 			return -EACCES;
+	}
+
+	return 0;
+}
+
+static int cgroup_allow_attach(struct cgroup *cgrp, struct cgroup_taskset *tset)
+{
+	struct cgroup_subsys_state *css;
+	int i;
+	int ret;
+
+	for_each_css(css, i, cgrp) {
+		if (css->ss->allow_attach) {
+			ret = css->ss->allow_attach(css, tset);
+			if (ret)
+				return ret;
+		} else {
+			return -EACCES;
+		}
 	}
 
 	return 0;
@@ -3454,10 +3438,10 @@ css_next_descendant_pre(struct cgroup_subsys_state *pos,
 
 	/* no child, visit my or the closest ancestor's next sibling */
 	while (pos != root) {
-		next = css_next_child(pos, css_parent(pos));
+		next = css_next_child(pos, pos->parent);
 		if (next)
 			return next;
-		pos = css_parent(pos);
+		pos = pos->parent;
 	}
 
 	return NULL;
@@ -3546,12 +3530,12 @@ css_next_descendant_post(struct cgroup_subsys_state *pos,
 		return NULL;
 
 	/* if there's an unvisited sibling, visit its leftmost descendant */
-	next = css_next_child(pos, css_parent(pos));
+	next = css_next_child(pos, pos->parent);
 	if (next)
 		return css_leftmost_descendant(next);
 
 	/* no sibling left, visit parent */
-	return css_parent(pos);
+	return pos->parent;
 }
 
 /**
@@ -4552,7 +4536,7 @@ static int create_css(struct cgroup *cgrp, struct cgroup_subsys *ss,
 
 	init_and_link_css(css, ss, cgrp);
 
-	err = percpu_ref_init(&css->refcnt, css_release);
+	err = percpu_ref_init(&css->refcnt, css_release, 0, GFP_KERNEL);
 	if (err)
 		goto err_free_css;
 
@@ -4625,7 +4609,7 @@ static int cgroup_mkdir(struct kernfs_node *parent_kn, const char *name,
 		goto out_unlock;
 	}
 
-	ret = percpu_ref_init(&cgrp->self.refcnt, css_release);
+	ret = percpu_ref_init(&cgrp->self.refcnt, css_release, 0, GFP_KERNEL);
 	if (ret)
 		goto out_free_cgrp;
 

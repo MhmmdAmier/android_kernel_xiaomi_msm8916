@@ -483,11 +483,6 @@ static void remove_event_file_dir(struct ftrace_event_file *file)
 	kmem_cache_free(file_cachep, file);
 }
 
-static void *event_file_data(struct file *filp)
-{
-	return ACCESS_ONCE(file_inode(filp)->i_private);
-}
-
 /*
  * Open and update trace_array ref count.
  * Must have the current trace_array passed to it.
@@ -1023,17 +1018,6 @@ static int f_show(struct seq_file *m, void *v)
 			   field->size, !!field->is_signed);
 
 	return 0;
-}
-
-static void *f_start(struct seq_file *m, loff_t *pos)
-{
-	void *p = (void *)FORMAT_HEADER;
-	loff_t l = 0;
-
-	while (l < *pos && p)
-		p = f_next(m, p, &l);
-
-	return p;
 }
 
 static void f_stop(struct seq_file *m, void *p)
