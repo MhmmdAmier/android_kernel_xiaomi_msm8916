@@ -2273,7 +2273,7 @@ static void cpuset_hotplug_workfn(struct work_struct *work)
 	mutex_unlock(&cpuset_mutex);
 
 	/* if cpus or mems went down, we need to propagate to descendants */
-	if (cpus_offlined || mems_offlined) {
+	if (cpus_updated || mems_updated) {
 		struct cpuset *cs;
 		struct cgroup_subsys_state *pos_css;
 
