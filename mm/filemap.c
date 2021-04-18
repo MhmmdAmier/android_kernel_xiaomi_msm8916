@@ -970,8 +970,6 @@ repeat:
 		}
 	}
 out:
-	if (page && (fgp_flags & FGP_ACCESSED))
-		mark_page_accessed(page);
 	rcu_read_unlock();
 
 	return page;

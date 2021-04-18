@@ -1151,28 +1151,6 @@ wait_on_bit_lock_action(void *word, int bit, int (*action)(void *), unsigned mod
 extern int bit_wait_io(void *);
 
 /**
- * wait_on_bit_io - wait for a bit to be cleared
- * @word: the word being waited on, a kernel virtual address
- * @bit: the bit of the word being waited on
- * @mode: the task state to sleep in
- *
- * Use the standard hashed waitqueue table to wait for a bit
- * to be cleared.  This is similar to wait_on_bit(), but calls
- * io_schedule() instead of schedule() for the actual waiting.
- *
- * Returned value will be zero if the bit was cleared, or non-zero
- * if the process received a signal and the mode permitted wakeup
- * on that signal.
- */
-static inline int wait_on_bit_io(void *word, int bit, unsigned mode)
-{
-	might_sleep();
-	if (!test_bit(bit, word))
-		return 0;
-	return out_of_line_wait_on_bit(word, bit, bit_wait_io, mode);
-}
-
-/**
  * wait_on_atomic_t - Wait for an atomic_t to become 0
  * @val: The atomic value being waited on, a kernel virtual address
  * @action: the function used to sleep, which may take special actions

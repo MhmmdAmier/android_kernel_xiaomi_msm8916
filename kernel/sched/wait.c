@@ -391,15 +391,6 @@ wait_queue_head_t *bit_waitqueue(void *word, int bit)
 }
 EXPORT_SYMBOL(bit_waitqueue);
 
-__sched int bit_wait_io(void *word)
-{
-	if (signal_pending_state(current->state, current))
-		return 1;
-	io_schedule();
-	return 0;
-}
-EXPORT_SYMBOL(bit_wait_io);
-
 /*
  * Manipulate the atomic_t address to produce a better bit waitqueue table hash
  * index (we're keying off bit -1, but that would produce a horrible hash

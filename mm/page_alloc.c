@@ -1271,7 +1271,7 @@ retry_reserve :
  */
 static int rmqueue_bulk(struct zone *zone, unsigned int order,
 			unsigned long count, struct list_head *list,
-			int migratetype, bool cold)
+			int migratetype, bool cold, int cma)
 {
 	int i;
 
