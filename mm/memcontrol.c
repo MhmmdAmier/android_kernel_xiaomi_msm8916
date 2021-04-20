@@ -381,8 +381,11 @@ struct mem_cgroup {
 	 * when it got over the soft limit.
 	 * When a group falls bellow the soft limit, parents' children_in_excess
 	 * is decreased and soft_contributed changed to false.
-	 */
-	struct mem_cgroup_lru_info info;
+	 
+	struct mem_cgroup_lru_info info;*/
+
+	struct mem_cgroup_per_node *nodeinfo[0];
+	/* WARNING: nodeinfo must be the last member here */
 };
 
 static size_t memcg_size(void)
@@ -5640,8 +5643,8 @@ static void mem_cgroup_invalidate_reclaim_iterators(struct mem_cgroup *memcg)
 static void mem_cgroup_css_offline(struct cgroup_subsys_state *css)
 {
 	struct mem_cgroup *memcg = mem_cgroup_from_css(css);
-	struct cgroup *iter;
 	struct mem_cgroup_event *event, *tmp;
+	struct cgroup_subsys_state *iter;
 
 	/*
 	 * Unregister events and notify userspace.
@@ -5662,14 +5665,9 @@ static void mem_cgroup_css_offline(struct cgroup_subsys_state *css)
 	 * This requires that offlining is serialized.  Right now that is
 	 * guaranteed because css_killed_work_fn() holds the cgroup_mutex.
 	 */
-	rcu_read_lock();
-	cgroup_for_each_descendant_post(iter, cont) {
-		rcu_read_unlock();
-		mem_cgroup_reparent_charges(mem_cgroup_from_cont(iter));
-		rcu_read_lock();
-	}
-	rcu_read_unlock();
-	mem_cgroup_reparent_charges(memcg);
+	css_for_each_descendant_post(iter, css)
+		mem_cgroup_reparent_charges(mem_cgroup_from_css(iter));
+
 	memcg_unregister_all_caches(memcg);
 	vmpressure_cleanup(&memcg->vmpressure);
 }
