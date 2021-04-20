@@ -3744,7 +3744,7 @@ SYSCALL_DEFINE1(rmdir, const char __user *, pathname)
  * be appropriate for callers that expect the underlying filesystem not
  * to be NFS exported.
  */
-int vfs_unlink2(struct vfsmount *mnt, struct inode *dir, struct dentry *dentry)k
+int vfs_unlink2(struct vfsmount *mnt, struct inode *dir, struct dentry *dentry)
 {
 	struct inode *target = dentry->d_inode;
 	int error = may_delete(mnt, dir, dentry, 0);
