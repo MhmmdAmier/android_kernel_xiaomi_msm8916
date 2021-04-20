@@ -2826,13 +2826,6 @@ static inline bool dir_relax(struct inode *inode)
 	return !IS_DEADDIR(inode);
 }
 
-static inline bool dir_relax(struct inode *inode)
-{
-	mutex_unlock(&inode->i_mutex);
-	mutex_lock(&inode->i_mutex);
-	return !IS_DEADDIR(inode);
-}
-
 extern void inode_nohighmem(struct inode *inode);
 
 #endif /* _LINUX_FS_H */
