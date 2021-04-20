@@ -484,7 +484,7 @@ static bool too_many_isolated(struct compact_control *cc)
 	 * slower, more accurate zone_page_state_snapshot().
 	 */
 	if (unlikely(__too_many_isolated(cc->zone, 0))) {
-		if (cc->sync)
+		if (cc->mode != MIGRATE_ASYNC)
 			return __too_many_isolated(cc->zone, 1);
 	}
 
