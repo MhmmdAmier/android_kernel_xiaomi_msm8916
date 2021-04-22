@@ -1873,7 +1873,6 @@ static int path_init(int dfd, const char *name, unsigned int flags,
 		struct dentry *root = nd->root.dentry;
 		struct vfsmount *mnt = nd->root.mnt;
 		struct inode *inode = root->d_inode;
-		struct vfsmount *mnt = nd->root.mnt;
 		if (*name) {
 			if (!d_can_lookup(root))
 				return -ENOTDIR;
