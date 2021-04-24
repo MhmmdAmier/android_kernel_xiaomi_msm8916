@@ -1284,20 +1284,7 @@ static ssize_t fuse_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 		goto out;
 
 	if (ff && ff->shortcircuit_enabled && ff->rw_lower_file) {
-		/* Use iocb->ki_pos instead of pos to handle the cases of files
-		 * that are opened with O_APPEND. For example if multiple
-		 * processes open the same file with O_APPEND then the
-		 * iocb->ki_pos will not be equal to the new pos value that is
-		 * updated with the file size(to guarantee appends even when
-		 * the file has grown due to the writes by another process).
-		 * We should use iocb->pos here since the lower filesystem
-		 * is expected to adjust for O_APPEND anyway and may need to
-		 * adjust the size for the file changes that occur due to
-		 * some processes writing directly to the lower filesystem
-		 * without using fuse.
-		 */
-		written = fuse_shortcircuit_aio_write(iocb, iov, nr_segs,
-							iocb->ki_pos);
+		written = fuse_shortcircuit_write_iter(iocb, from);
 		goto out;
 	}
 
