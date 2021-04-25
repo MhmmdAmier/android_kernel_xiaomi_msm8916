@@ -545,8 +545,6 @@ static int keyring_search_iterator(const void *object, void *iterator_data)
 			goto skipped;
 		}
 
-	if (!match)
-		return ERR_PTR(-ENOKEY);
 
 		if (key->expiry && ctx->now.tv_sec >= key->expiry) {
 			ctx->result = ERR_PTR(-EKEYEXPIRED);
