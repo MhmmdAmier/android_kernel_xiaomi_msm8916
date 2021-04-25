@@ -577,7 +577,7 @@ try_again:
 		}
 
 		key = ctx.cred->process_keyring;
-		__key_get(key)
+		__key_get(key);
 		key_ref = make_key_ref(key, 1);
 		break;
 
