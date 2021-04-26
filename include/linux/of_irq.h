@@ -10,6 +10,15 @@ struct of_irq;
 #include <linux/ioport.h>
 #include <linux/of.h>
 
+/*
+ * irq_of_parse_and_map() is used by all OF enabled platforms; but SPARC
+ * implements it differently.  However, the prototype is the same for all,
+ * so declare it here regardless of the CONFIG_OF_IRQ setting.
+ */
+extern unsigned int irq_of_parse_and_map(struct device_node *node, int index);
+
+#if defined(CONFIG_OF_IRQ)
+
 typedef int (*of_irq_init_cb_t)(struct device_node *, struct device_node *);
 
 /*
