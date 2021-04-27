@@ -290,7 +290,7 @@ out:
 
 void ion_heap_init_shrinker(struct ion_heap *heap)
 {
-	heap->shrinker.shrink = ion_heap_shrink;
+	heap->shrinker.scan_objects = ion_heap_shrink;
 	heap->shrinker.seeks = DEFAULT_SEEKS;
 	heap->shrinker.batch = 0;
 	register_shrinker(&heap->shrinker);
