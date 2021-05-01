@@ -745,64 +745,34 @@ EXPORT_SYMBOL(fget_raw);
  * The fput_needed flag returned by fget_light should be passed to the
  * corresponding fput_light.
  */
-static unsigned long __fget_light(unsigned int fd, fmode_t mask)
+struct file *__fget_light(unsigned int fd, fmode_t mask, int *fput_needed)
 {
 	struct files_struct *files = current->files;
 	struct file *file;
 
+	*fput_needed = 0;
 	if (atomic_read(&files->count) == 1) {
 		file = __fcheck_files(files, fd);
-		if (!file || unlikely(file->f_mode & mask))
-			return 0;
-		return (unsigned long)file;
+		if (file && (file->f_mode & mask))
+			file = NULL;
 	} else {
 		file = __fget(fd, mask);
-		if (!file)
-			return 0;
-		return FDPUT_FPUT | (unsigned long)file;
+		if (file)
+			*fput_needed = 1;
 	}
+
+	return file;
 }
-unsigned long __fdget(unsigned int fd)
+struct file *fget_light(unsigned int fd, int *fput_needed)
 {
-	return __fget_light(fd, FMODE_PATH);
+	return __fget_light(fd, FMODE_PATH, fput_needed);
 }
-EXPORT_SYMBOL(__fdget);
+EXPORT_SYMBOL(fget_light);
 
-unsigned long __fdget_raw(unsigned int fd)
+struct file *fget_raw_light(unsigned int fd, int *fput_needed)
 {
-	return __fget_light(fd, 0);
+	return __fget_light(fd, 0, fput_needed);
 }
-
-unsigned long __fdget_pos(unsigned int fd)
-{
-	struct files_struct *files = current->files;
-	struct file *file;
-	unsigned long v;
-
-	if (atomic_read(&files->count) == 1) {
-		file = __fcheck_files(files, fd);
-		v = 0;
-	} else {
-		file = __fget(fd, 0);
-		v = FDPUT_FPUT;
-	}
-	if (!file)
-		return 0;
-
-	if (file->f_mode & FMODE_ATOMIC_POS) {
-		if (file_count(file) > 1) {
-			v |= FDPUT_POS_UNLOCK;
-			mutex_lock(&file->f_pos_lock);
-		}
-	}
-	return v | (unsigned long)file;
-}
-
-/*
- * We only lock f_pos if we have threads or if the file might be
- * shared with another process. In both cases we'll have an elevated
- * file count (done either by fdget() or by fork()).
- */
 
 void set_close_on_exec(unsigned int fd, int flag)
 {
