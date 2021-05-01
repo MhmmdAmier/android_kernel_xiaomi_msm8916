@@ -2503,9 +2503,6 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
 		struct udphdr *uh;
 		int udp_offset = outer_hlen - tnl_hlen;
 
-		skb_reset_inner_headers(skb);
-		skb->encapsulation = 1;
-
 		skb->mac_len = mac_len;
 
 		skb_push(skb, outer_hlen);
@@ -2538,7 +2535,7 @@ struct sk_buff *skb_udp_tunnel_segment(struct sk_buff *skb,
 				uh->check = CSUM_MANGLED_0;
 			skb->ip_summed = CHECKSUM_NONE;
 		}
-
+		skb->ip_summed = CHECKSUM_NONE;
 		skb->protocol = protocol;
 	} while ((skb = skb->next));
 out:
