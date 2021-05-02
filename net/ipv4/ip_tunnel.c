@@ -134,12 +134,10 @@ static bool ip_tunnel_key_match(const struct ip_tunnel_parm *p,
 }
 
 /* Fallback tunnel: no source, no destination, no key, no options
-
    Tunnel hash table:
    We require exact key match i.e. if a key is present in packet
    it will match only tunnel with the same key; if it is not present,
    it will match only keyless tunnel.
-
    All keysless packets, if not matched configured keyless tunnels
    will match fallback tunnel.
    Given src, dst and key, find appropriate for input tunnel.
@@ -173,7 +171,6 @@ struct ip_tunnel *ip_tunnel_lookup(struct ip_tunnel_net *itn,
 
 	hlist_for_each_entry_rcu(t, head, hash_node) {
 		if (remote != t->parms.iph.daddr ||
-		    t->parms.iph.saddr != 0 ||
 		    !(t->dev->flags & IFF_UP))
 			continue;
 
@@ -190,11 +187,10 @@ struct ip_tunnel *ip_tunnel_lookup(struct ip_tunnel_net *itn,
 	head = &itn->tunnels[hash];
 
 	hlist_for_each_entry_rcu(t, head, hash_node) {
-		if ((local != t->parms.iph.saddr || t->parms.iph.daddr != 0) &&
-		    (local != t->parms.iph.daddr || !ipv4_is_multicast(local)))
-			continue;
-
-		if (!(t->dev->flags & IFF_UP))
+		if ((local != t->parms.iph.saddr &&
+		     (local != t->parms.iph.daddr ||
+		      !ipv4_is_multicast(local))) ||
+		    !(t->dev->flags & IFF_UP))
 			continue;
 
 		if (!ip_tunnel_key_match(&t->parms, flags, key))
@@ -211,8 +207,6 @@ struct ip_tunnel *ip_tunnel_lookup(struct ip_tunnel_net *itn,
 
 	hlist_for_each_entry_rcu(t, head, hash_node) {
 		if (t->parms.i_key != key ||
-		    t->parms.iph.saddr != 0 ||
-		    t->parms.iph.daddr != 0 ||
 		    !(t->dev->flags & IFF_UP))
 			continue;
 
@@ -399,10 +393,11 @@ static struct ip_tunnel *ip_tunnel_create(struct net *net,
 					  struct ip_tunnel_net *itn,
 					  struct ip_tunnel_parm *parms)
 {
-	struct ip_tunnel *nt;
+	struct ip_tunnel *nt, *fbt;
 	struct net_device *dev;
 
 	BUG_ON(!itn->fb_tunnel_dev);
+	fbt = netdev_priv(itn->fb_tunnel_dev);
 	dev = __ip_tunnel_create(net, itn->fb_tunnel_dev->rtnl_link_ops, parms);
 	if (IS_ERR(dev))
 		return ERR_CAST(dev);
@@ -502,6 +497,7 @@ static int tnl_update_pmtu(struct net_device *dev, struct sk_buff *skb,
 	if (skb->protocol == htons(ETH_P_IP)) {
 		if (!skb_is_gso(skb) &&
 		    (df & htons(IP_DF)) && mtu < pkt_size) {
+			memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
 			icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED, htonl(mtu));
 			return -E2BIG;
 		}
@@ -666,13 +662,13 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct net_device *dev,
 
 	max_headroom = LL_RESERVED_SPACE(rt->dst.dev) + sizeof(struct iphdr)
 			+ rt->dst.header_len;
-	if (max_headroom > dev->needed_headroom) {
+	if (max_headroom > dev->needed_headroom)
 		dev->needed_headroom = max_headroom;
 
 	if (skb_cow_head(skb, dev->needed_headroom)) {
 		ip_rt_put(rt);
 		dev->stats.tx_dropped++;
-		dev_kfree_skb(skb);
+		kfree_skb(skb);
 		return;
 	}
 
@@ -688,7 +684,7 @@ tx_error_icmp:
 #endif
 tx_error:
 	dev->stats.tx_errors++;
-	dev_kfree_skb(skb);
+	kfree_skb(skb);
 }
 EXPORT_SYMBOL_GPL(ip_tunnel_xmit);
 
@@ -759,8 +755,10 @@ int ip_tunnel_ioctl(struct net_device *dev, struct ip_tunnel_parm *p, int cmd)
 
 		if (!t && (cmd == SIOCADDTUNNEL)) {
 			t = ip_tunnel_create(net, itn, p);
-			err = PTR_ERR_OR_ZERO(t);
-			break;
+			if (IS_ERR(t)) {
+				err = PTR_ERR(t);
+				break;
+			}
 		}
 		if (dev != itn->fb_tunnel_dev && cmd == SIOCCHGTUNNEL) {
 			if (t != NULL) {
@@ -1012,7 +1010,6 @@ int ip_tunnel_init(struct net_device *dev)
 	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
 	if (!dev->tstats)
 		return -ENOMEM;
-
 
 	tunnel->dst_cache = alloc_percpu(struct ip_tunnel_dst);
 	if (!tunnel->dst_cache) {

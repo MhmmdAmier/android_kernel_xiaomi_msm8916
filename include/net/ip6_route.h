@@ -105,6 +105,9 @@ int icmp6_dst_gc(void);
 
 void fib6_force_start_gc(struct net *net);
 
+struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+				    const struct in6_addr *addr, bool anycast);
+
 /*
  *	support functions for ND
  *

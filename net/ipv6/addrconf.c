@@ -5219,7 +5219,7 @@ static struct addrconf_sysctl_table
 			.mode           = 0644,
 			.proc_handler   = proc_dointvec
 		},
-		
+		{
 			.procname	= "suppress_frag_ndisc",
 			.data		= &ipv6_devconf.suppress_frag_ndisc,
 			.maxlen		= sizeof(int),
