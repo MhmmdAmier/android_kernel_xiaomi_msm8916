@@ -50,10 +50,9 @@ void fuse_setup_shortcircuit(struct fuse_conn *fc, struct fuse_req *req)
 	req->private_lower_rw_file = rw_lower_file;
 }
 
-static ssize_t fuse_shortcircuit_aio_read_write(struct kiocb *iocb,
-						const struct iovec *iov,
-						unsigned long nr_segs,
-						loff_t pos, int do_write)
+static ssize_t fuse_shortcircuit_read_write_iter(struct kiocb *iocb,
+						 struct iov_iter *iter,
+						 int do_write)
 {
 	ssize_t ret_val;
 	struct fuse_file *ff;
@@ -71,20 +70,18 @@ static ssize_t fuse_shortcircuit_aio_read_write(struct kiocb *iocb,
 	lower_inode = file_inode(lower_file);
 
 	if (do_write) {
-		if (!lower_file->f_op->aio_write)
+		if (!lower_file->f_op->write_iter)
 			return -EIO;
-
-		ret_val = lower_file->f_op->aio_write(iocb, iov, nr_segs, pos);
+		ret_val = lower_file->f_op->write_iter(iocb, iter);
 
 		if (ret_val >= 0 || ret_val == -EIOCBQUEUED) {
 			fsstack_copy_inode_size(fuse_inode, lower_inode);
 			fsstack_copy_attr_times(fuse_inode, lower_inode);
 		}
 	} else {
-		if (!lower_file->f_op->aio_read)
+		if (!lower_file->f_op->read_iter)
 			return -EIO;
-
-		ret_val = lower_file->f_op->aio_read(iocb, iov, nr_segs, pos);
+		ret_val = lower_file->f_op->read_iter(iocb, iter);
 		if (ret_val >= 0 || ret_val == -EIOCBQUEUED)
 			fsstack_copy_attr_atime(fuse_inode, lower_inode);
 	}
@@ -96,16 +93,14 @@ static ssize_t fuse_shortcircuit_aio_read_write(struct kiocb *iocb,
 	return ret_val;
 }
 
-ssize_t fuse_shortcircuit_aio_read(struct kiocb *iocb, const struct iovec *iov,
-				   unsigned long nr_segs, loff_t pos)
+ssize_t fuse_shortcircuit_read_iter(struct kiocb *iocb, struct iov_iter *to)
 {
-	return fuse_shortcircuit_aio_read_write(iocb, iov, nr_segs, pos, 0);
+	return fuse_shortcircuit_read_write_iter(iocb, to, 0);
 }
 
-ssize_t fuse_shortcircuit_aio_write(struct kiocb *iocb, const struct iovec *iov,
-				    unsigned long nr_segs, loff_t pos)
+ssize_t fuse_shortcircuit_write_iter(struct kiocb *iocb, struct iov_iter *from)
 {
-	return fuse_shortcircuit_aio_read_write(iocb, iov, nr_segs, pos, 1);
+	return fuse_shortcircuit_read_write_iter(iocb, from, 1);
 }
 
 void fuse_shortcircuit_release(struct fuse_file *ff)
