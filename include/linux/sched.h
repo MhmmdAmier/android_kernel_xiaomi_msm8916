@@ -3048,7 +3048,8 @@ static inline void current_clr_polling(void)
 	 */
 	smp_mb(); /* paired with resched_curr() */
 
-	preempt_fold_need_resched();
+	if (tif_need_resched())
+		set_preempt_need_resched();
 }
 
 /*
