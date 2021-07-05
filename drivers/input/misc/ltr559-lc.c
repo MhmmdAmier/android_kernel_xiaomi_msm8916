@@ -132,7 +132,7 @@ static  struct ltr559_reg reg_tbl[] = {
 				.name   = "ALS_CONTR",
 				.addr   = 0x80,
 				.defval = 0x00,
-#ifdef CONFIG_MACH_XIAOMI
+#ifdef CONFIG_MACH_WT88047
 				.curval = 0x0D,
 #else
 				.curval = 0x19,
@@ -1326,7 +1326,7 @@ int ltr559_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	input_set_abs_params(data->input_dev_als, ABS_MISC, 0, 65535, 0, 0);
 	input_set_abs_params(data->input_dev_ps, ABS_DISTANCE, 0, 1, 0, 0);
 
-#ifdef CONFIG_MACH_XIAOMI
+#ifdef CONFIG_MACH_WT88047
 	data->input_dev_als->name = "light";
 	data->input_dev_ps->name = "proximity";
 #else
