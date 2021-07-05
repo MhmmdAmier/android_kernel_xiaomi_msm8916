@@ -32,9 +32,8 @@ obj-$(CONFIG_TOUCHSCREEN_EETI)		+= eeti_ts.o
 obj-$(CONFIG_TOUCHSCREEN_ELO)		+= elo.o
 obj-$(CONFIG_TOUCHSCREEN_EGALAX)	+= egalax_ts.o
 obj-$(CONFIG_TOUCHSCREEN_FUJITSU)	+= fujitsu_ts.o
-obj-$(CONFIG_TOUCHSCREEN_GEN_VKEYS)	+= gen_vkeys_720P.o
-
 obj-$(CONFIG_TOUCHSCREEN_GEN_VKEYS)	+= gen_vkeys.o
+obj-$(CONFIG_TOUCHSCREEN_GEN_VKEYS)	+= gen_vkeys_ist.o
 obj-$(CONFIG_TOUCHSCREEN_ILI210X)	+= ili210x.o
 obj-$(CONFIG_TOUCHSCREEN_INEXIO)	+= inexio.o
 obj-$(CONFIG_TOUCHSCREEN_INTEL_MID)	+= intel-mid-touch.o
@@ -90,4 +89,3 @@ obj-$(CONFIG_TOUCHSCREEN_GSL1688E) += gsl_ts_driver.o gsl_ReadArrayData.o gsl_po
 obj-$(CONFIG_TOUCHSCREEN_IT7260_I2C)    += it7258_ts_i2c.o
 obj-$(CONFIG_TOUCHSCREEN_FT5336)	+= FT5336/
 obj-$(CONFIG_TOUCHSCREEN_IST30XX)	+= IST30xx/
-

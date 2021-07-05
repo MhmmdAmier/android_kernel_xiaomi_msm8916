@@ -54,6 +54,7 @@
 
 #if CTP_LOCKDOWN_INFO
 static u8 lockdown_info[FT_LOCKDOWN_SIZE];
+extern u8 tp_color;
 
 static u8 nomal_boot;
 #endif
@@ -1104,6 +1105,7 @@ static void fts_ctpm_read_lockdown(struct i2c_client *client, struct ft5x06_ts_d
 		lockdown_info[k] = data->lockdown_info[k];
 	}
 
+	tp_color =  lockdown_info[2];
 	TP_Maker = lockdown_info[0];
 	LCD_Maker = lockdown_info[1];
 	dev_info(&client->dev, "Lockdown info: %02X %02X %02X %02X %02X %02X %02X %02X",
