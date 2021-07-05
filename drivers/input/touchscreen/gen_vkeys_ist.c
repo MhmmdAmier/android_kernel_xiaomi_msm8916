@@ -34,8 +34,8 @@
 extern struct kobject *vkey_obj;
 static char *vkey_buf;
 
-static ssize_t vkey_show(struct kobject *obj,
-			 struct kobj_attribute *attr, char *buf)
+static ssize_t vkey_show(struct kobject  *obj,
+		struct kobj_attribute *attr, char *buf)
 {
 	strlcpy(buf, vkey_buf, MAX_BUF_SIZE);
 	return strnlen(buf, MAX_BUF_SIZE);
@@ -43,8 +43,8 @@ static ssize_t vkey_show(struct kobject *obj,
 
 static struct kobj_attribute vkey_obj_attr = {
 	.attr = {
-		 .mode = S_IRUGO,
-		 },
+		.mode = S_IRUGO,
+	},
 	.show = vkey_show,
 };
 
@@ -57,7 +57,8 @@ static struct attribute_group vkey_grp = {
 	.attrs = vkey_attr,
 };
 
-static int vkey_parse_dt(struct device *dev, struct vkeys_platform_data *pdata)
+static int vkey_parse_dt(struct device *dev,
+			struct vkeys_platform_data *pdata)
 {
 	struct device_node *np = dev->of_node;
 	struct property *prop;
@@ -97,13 +98,11 @@ static int vkey_parse_dt(struct device *dev, struct vkeys_platform_data *pdata)
 	if (prop) {
 		pdata->num_keys = prop->length / sizeof(u32);
 		pdata->keycodes = devm_kzalloc(dev,
-					       sizeof(u32) * pdata->num_keys,
-					       GFP_KERNEL);
+			sizeof(u32) * pdata->num_keys, GFP_KERNEL);
 		if (!pdata->keycodes)
 			return -ENOMEM;
 		rc = of_property_read_u32_array(np, "qcom,key-codes",
-						pdata->keycodes,
-						pdata->num_keys);
+				pdata->keycodes, pdata->num_keys);
 		if (rc) {
 			dev_err(dev, "Failed to read key codes\n");
 			return -EINVAL;
@@ -136,8 +135,7 @@ static int vkeys_probe(struct platform_device *pdev)
 
 	if (pdev->dev.of_node) {
 		pdata = devm_kzalloc(&pdev->dev,
-				     sizeof(struct vkeys_platform_data),
-				     GFP_KERNEL);
+			sizeof(struct vkeys_platform_data), GFP_KERNEL);
 		if (!pdata) {
 			dev_err(&pdev->dev, "Failed to allocate memory\n");
 			return -ENOMEM;
@@ -152,14 +150,14 @@ static int vkeys_probe(struct platform_device *pdev)
 		pdata = pdev->dev.platform_data;
 
 	if (!pdata || !pdata->name || !pdata->keycodes || !pdata->num_keys ||
-	    !pdata->disp_maxx || !pdata->disp_maxy || !pdata->panel_maxy) {
+		!pdata->disp_maxx || !pdata->disp_maxy || !pdata->panel_maxy) {
 		dev_err(&pdev->dev, "pdata is invalid\n");
 		return -EINVAL;
 	}
 
 	border = (pdata->panel_maxx - pdata->disp_maxx) * 2;
 	width = ((pdata->disp_maxx - (border * (pdata->num_keys - 1)))
-		 / pdata->num_keys);
+			/ pdata->num_keys);
 	height = (pdata->panel_maxy - pdata->disp_maxy);
 	center_y = pdata->disp_maxy + (height / 2) + pdata->y_offset;
 	height = height * HEIGHT_SCALE_NUM / HEIGHT_SCALE_DENOM;
@@ -171,23 +169,25 @@ static int vkeys_probe(struct platform_device *pdev)
 		x2 = x2 + border + width;
 		center_x = x1 + (x2 - x1) / 2;
 		c += snprintf(vkey_buf + c, MAX_BUF_SIZE - c,
-			      "%s:%d:%d:%d:%d:%d\n",
-			      VKEY_VER_CODE, pdata->keycodes[i],
-			      center_x, center_y, width, height);
+				"%s:%d:%d:%d:%d:%d\n",
+				VKEY_VER_CODE, pdata->keycodes[i],
+				center_x, center_y, width, height);
 	}
 
 	vkey_buf[c] = '\0';
 
 	name = devm_kzalloc(&pdev->dev, sizeof(*name) * MAX_BUF_SIZE,
-			    GFP_KERNEL);
+					GFP_KERNEL);
 	if (!name)
 		return -ENOMEM;
 
-	snprintf(name, MAX_BUF_SIZE, "virtualkeys.%s", pdata->name);
+	snprintf(name, MAX_BUF_SIZE,
+				"virtualkeys.%s", pdata->name);
 	vkey_obj_attr.attr.name = name;
 
+
 	if (!vkey_obj) {
-		vkey_obj = kobject_create_and_add("board_properties", NULL);
+	   vkey_obj = kobject_create_and_add("board_properties", NULL);
 	}
 
 	ret = sysfs_create_group(vkey_obj, &vkey_grp);
@@ -220,10 +220,10 @@ static struct platform_driver vkeys_driver = {
 	.probe = vkeys_probe,
 	.remove = vkeys_remove,
 	.driver = {
-		   .owner = THIS_MODULE,
-		   .name = "gen_vkeys_ist",
-		   .of_match_table = vkey_match_table,
-		   },
+		.owner = THIS_MODULE,
+		.name = "gen_vkeys_ist",
+		.of_match_table = vkey_match_table,
+	},
 };
 
 module_platform_driver(vkeys_driver);
