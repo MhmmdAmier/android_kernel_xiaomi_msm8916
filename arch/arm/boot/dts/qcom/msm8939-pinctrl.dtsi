@@ -548,7 +548,7 @@
 			qcom,pins = <&gp 9>;
 			qcom,num-grp-pins = <1>;
 			label = "gpio-led-pins";
-			gpio_led_off: gpio_led_off {
+			gpio_led_off: led_off {
 				drive-strength = <2>;
 				bias-disable;
 				output-low;

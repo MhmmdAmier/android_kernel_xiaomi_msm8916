@@ -107,6 +107,52 @@
 
 	};
 
+	i2c@78ba000 {/* i2c 6 */
+		aw2013@45 {
+                    compatible = "awinic,aw2013";
+                    reg = <0x45>;
+                    vdd-supply = <&pm8916_l17>;
+                    vcc-supply = <&pm8916_l6>;
+
+                    aw2013,red {
+                    aw2013,name = "red";
+                            aw2013,id = <0>;
+                            aw2013,max-brightness = <255>;
+                            aw2013,max-current = <3>;
+                            aw2013,rise-time-ms = <2>;
+                            aw2013,hold-time-ms = <1>;
+                            aw2013,fall-time-ms = <2>;
+                            aw2013,off-time-ms = <1>;
+                            linux,default-trigger = "battery-red";
+                    };
+
+                    aw2013,green {
+                            aw2013,name = "green";
+                            aw2013,id = <1>;
+                            aw2013,max-brightness = <255>;
+                            aw2013,max-current = <3>;
+                            aw2013,rise-time-ms = <2>;
+                            aw2013,hold-time-ms = <1>;
+                            aw2013,fall-time-ms = <2>;
+                            aw2013,off-time-ms = <1>;
+                            linux,default-trigger = "battery-green";
+                    };
+
+                    aw2013,blue {
+                            aw2013,name = "blue";
+                            aw2013,id = <2>;
+                            aw2013,max-brightness = <255>;
+                            aw2013,max-current = <3>;
+                            aw2013,rise-time-ms = <2>;
+                            aw2013,hold-time-ms = <1>;
+                            aw2013,fall-time-ms = <2>;
+                            aw2013,off-time-ms = <1>;
+                            linux,default-trigger = "battery-blue";
+                   };
+             };
+	};
+
+
 	fpc1020 {
 		status = "ok";
 		compatible = "fpc,fpc1020";
@@ -207,53 +253,6 @@
 		};
 
 	};
-
-	i2c@78ba000 {/* i2c 6 */
-		aw2013@45 {
-                    compatible = "awinic,aw2013";
-                    reg = <0x45>;
-                    vdd-supply = <&pm8916_l17>;
-                    vcc-supply = <&pm8916_l6>;
-
-                    aw2013,red {
-                    aw2013,name = "red";
-                            aw2013,id = <0>;
-                            aw2013,max-brightness = <255>;
-                            aw2013,max-current = <3>;
-                            aw2013,rise-time-ms = <2>;
-                            aw2013,hold-time-ms = <1>;
-                            aw2013,fall-time-ms = <2>;
-                            aw2013,off-time-ms = <1>;
-                            linux,default-trigger = "battery-red";
-                    };
-
-                    aw2013,green {
-                            aw2013,name = "green";
-                            aw2013,id = <1>;
-                            aw2013,max-brightness = <255>;
-                            aw2013,max-current = <3>;
-                            aw2013,rise-time-ms = <2>;
-                            aw2013,hold-time-ms = <1>;
-                            aw2013,fall-time-ms = <2>;
-                            aw2013,off-time-ms = <1>;
-                            linux,default-trigger = "battery-green";
-                    };
-
-                    aw2013,blue {
-                            aw2013,name = "blue";
-                            aw2013,id = <2>;
-                            aw2013,max-brightness = <255>;
-                            aw2013,max-current = <3>;
-                            aw2013,rise-time-ms = <2>;
-                            aw2013,hold-time-ms = <1>;
-                            aw2013,fall-time-ms = <2>;
-                            aw2013,off-time-ms = <1>;
-                            linux,default-trigger = "battery-blue";
-                   };
-             };
-	};
-
-
 	sound {
 		compatible = "qcom,msm8x16-audio-codec";
 		qcom,model = "msm8939-snd-card-skuk";
